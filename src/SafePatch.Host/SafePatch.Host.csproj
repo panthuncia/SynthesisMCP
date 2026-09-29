@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Trusted host core. Must stay free of Mutagen, Synthesis and Win32 so it is testable with fakes. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Protocol\SafePatch.Protocol.csproj" />
+  </ItemGroup>
+</Project>

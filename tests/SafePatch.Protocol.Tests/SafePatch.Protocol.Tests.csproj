@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SafePatch.Protocol\SafePatch.Protocol.csproj" />
+  </ItemGroup>
+</Project>

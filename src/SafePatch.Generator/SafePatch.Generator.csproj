@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Emits a publisher-controlled Synthesis patcher repository from the fixed template. -->
+  <ItemGroup>
+    <!-- Template files are data, never compiled into this project. WithCulture=false stops
+         "Program.cs.template" being taken for a Czech ("cs") satellite resource. -->
+    <EmbeddedResource Include="Template\*" LogicalName="Template.%(Filename)%(Extension)" WithCulture="false" />
+    <Compile Remove="Template\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Compiler\SafePatch.Compiler.csproj" />
+    <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" />
+  </ItemGroup>
+</Project>

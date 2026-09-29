@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- `safepatch`: one command per authoring operation, JSON on standard output. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>safepatch</AssemblyName>
+    <RootNamespace>SafePatch.Cli</RootNamespace>
+    <!-- Installed with `dotnet tool install`; the worker folder comes along in the tool's publish output. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <Version>0.1.0</Version>
+    <Authors>SafeSynthesis</Authors>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageId>SafePatch.Cli</PackageId>
+    <ToolCommandName>safepatch</ToolCommandName>
+    <Description>Command line for authoring sandboxed SafePatch patchers: read a load order, test a program in the sandbox, package a Synthesis patcher.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Authoring\SafePatch.Authoring.csproj" />
+  </ItemGroup>
+</Project>

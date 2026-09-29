@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Synthesis entry point and composition root: the only place the real pieces are wired together. -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <PackageId>SafePatch.Synthesis</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>SafeSynthesis</Authors>
+    <Description>Runs agent-authored Skyrim patch programs inside Synthesis in an AppContainer sandbox, and applies only the changes their manifest allows.</Description>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageTags>synthesis;mutagen;skyrim;sandbox</PackageTags>
+    <!-- The host's own SafePatch assemblies and the worker ship inside this package. -->
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);IncludeSafePatchAssemblies</TargetsForTfmSpecificBuildOutput>
+    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludeSafePatchWorkerInPackage</TargetsForTfmSpecificContentInPackage>
+    <_SafePatchPackPrivate Condition="'$(_IsPacking)' == 'true'">all</_SafePatchPackPrivate>
+    <SafePatchWorkerPublishDir>$(MSBuildProjectDirectory)\obj\worker\$(Configuration)\</SafePatchWorkerPublishDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Mutagen.Bethesda.Synthesis" />
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- When packing, these ship inside the package (IncludeSafePatchAssemblies) rather than as package dependencies. -->
+    <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" PrivateAssets="$(_SafePatchPackPrivate)" />
+    <ProjectReference Include="..\SafePatch.Mutagen\SafePatch.Mutagen.csproj" PrivateAssets="$(_SafePatchPackPrivate)" />
+    <ProjectReference Include="..\SafePatch.Sandbox.Windows\SafePatch.Sandbox.Windows.csproj" PrivateAssets="$(_SafePatchPackPrivate)" />
+    <!-- Built first, then published into its own folder: never flattened into the patcher's. -->
+    <ProjectReference Include="..\SafePatch.Worker\SafePatch.Worker.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="false" />
+    <None Update="buildTransitive\SafePatch.Synthesis.targets" Pack="true" PackagePath="buildTransitive\SafePatch.Synthesis.targets" />
+  </ItemGroup>
+
+  <!-- The worker's complete, framework-dependent closure, in SafePatch.Worker\ next to the patcher. -->
+  <Target Name="PublishSafePatchWorker" AfterTargets="Build">
+    <MSBuild Projects="..\SafePatch.Worker\SafePatch.Worker.csproj" Targets="Publish"
+             Properties="NoBuild=true;Configuration=$(Configuration);PublishDir=$(SafePatchWorkerPublishDir)" />
+  </Target>
+
+  <!-- Projects referencing this one (generated patchers, tests) copy the worker folder to their output. -->
+  <Target Name="IncludeSafePatchWorker" BeforeTargets="GetCopyToOutputDirectoryItems" DependsOnTargets="PublishSafePatchWorker">
+    <ItemGroup>
+      <_SafePatchWorkerFile Include="$(SafePatchWorkerPublishDir)**\*" />
+      <ContentWithTargetPath Include="@(_SafePatchWorkerFile)" TargetPath="SafePatch.Worker\%(RecursiveDir)%(Filename)%(Extension)"
+                             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="IncludeSafePatchAssemblies" DependsOnTargets="ResolveReferences">
+    <ItemGroup>
+      <BuildOutputInPackage Include="@(ReferenceCopyLocalPaths->WithMetadataValue('ReferenceSourceTarget', 'ProjectReference')->WithMetadataValue('Extension', '.dll'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="IncludeSafePatchWorkerInPackage" DependsOnTargets="PublishSafePatchWorker">
+    <ItemGroup>
+      <_SafePatchWorkerPackageFile Include="$(SafePatchWorkerPublishDir)**\*" />
+      <TfmSpecificPackageFile Include="@(_SafePatchWorkerPackageFile)" PackagePath="tools\worker\%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+  </Target>
+</Project>

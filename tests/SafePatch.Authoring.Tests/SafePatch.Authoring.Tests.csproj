@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Authoring\SafePatch.Authoring.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Cli\SafePatch.Cli.csproj" />
+  </ItemGroup>
+</Project>

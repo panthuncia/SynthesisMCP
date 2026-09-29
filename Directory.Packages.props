@@ -1,0 +1,18 @@
+<Project>
+  <!-- Every version is pinned. Changing one is a trusted-template change: review it.
+       Mutagen and Synthesis are exact ranges, so the SafePatch.Synthesis package pins them too: the host
+       and the worker must read plugins with the same Mutagen. -->
+  <ItemGroup>
+    <PackageVersion Include="Mutagen.Bethesda.Skyrim" Version="[0.54.4]" />
+    <PackageVersion Include="Mutagen.Bethesda.Synthesis" Version="[0.36.6]" />
+    <PackageVersion Include="Basic.Reference.Assemblies.Net100" Version="1.8.12" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
+    <!-- The MCP front end only (SafePatch.Mcp): the official C# MCP SDK and its host. -->
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="TestableIO.System.IO.Abstractions.TestingHelpers" Version="22.1.1" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+</Project>

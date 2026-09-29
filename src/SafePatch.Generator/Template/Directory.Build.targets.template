@@ -1,0 +1,3 @@
+<Project>
+  <!-- Stops MSBuild importing targets from folders above this repository. -->
+</Project>

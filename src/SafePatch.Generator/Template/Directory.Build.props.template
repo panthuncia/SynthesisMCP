@@ -1,0 +1,6 @@
+<Project>
+  <!-- Stops MSBuild importing props from folders above this repository. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Mutagen edge: validates the worker's output plugin with Mutagen's generated code and applies it. -->
+  <ItemGroup>
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" />
+  </ItemGroup>
+</Project>

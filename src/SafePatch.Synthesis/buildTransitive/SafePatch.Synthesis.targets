@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Copies the sandboxed worker from this package into SafePatch.Worker\ next to the patcher, where
+    SafePatchHost looks for it. The folder holds the worker's complete dependency closure, so it never
+    mixes with the patcher's own assemblies, and it is the only folder the AppContainer can read.
+  -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\tools\worker\**\*"
+          Link="SafePatch.Worker\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+</Project>

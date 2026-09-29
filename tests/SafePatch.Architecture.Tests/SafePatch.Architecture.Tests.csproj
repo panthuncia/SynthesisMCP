@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Reads project files only; references nothing under src so it can check all of them. -->
+</Project>

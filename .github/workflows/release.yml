@@ -1,0 +1,87 @@
+# Publishes SafePatch.Synthesis, SafePatch.Cli and SafePatch.Mcp to nuget.org from a version tag (v1.2.3).
+#
+# Disabled until the first release is approved. To enable:
+#   1. set the repository variable SAFEPATCH_PUBLISH_ENABLED to "true";
+#   2. create a "nuget" environment with required reviewers, and add the NUGET_API_KEY secret to it.
+# Every publish then waits for a reviewer. Optionally sign the packages first (`dotnet nuget sign` with the
+# publisher's code-signing certificate) before pushing them.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+  MSBUILDDISABLENODEREUSE: "1"
+
+jobs:
+  pack:
+    name: Test and pack
+    if: ${{ vars.SAFEPATCH_PUBLISH_ENABLED == 'true' }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Version from the tag
+        id: version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Tag ${{ github.ref_name }} is not a version." }
+          "value=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Cache end-to-end tools
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\SafePatch\e2e-tools
+          key: e2e-tools-${{ hashFiles('eng/e2e-tools/Get-E2ETools.ps1') }}
+
+      # The whole suite except MO2 (run by hand before tagging) and Scale.
+      - name: Build and test
+        run: |
+          dotnet build -c Release -p:Version=${{ steps.version.outputs.value }}
+          dotnet test -c Release --no-build --filter "Category!=MO2&Category!=Scale"
+
+      # Authoring packages reference the runtime of the same version, so all three share it.
+      - name: Pack
+        run: |
+          dotnet pack src/SafePatch.Synthesis -c Release -o artifacts -p:Version=${{ steps.version.outputs.value }}
+          dotnet pack src/SafePatch.Cli -c Release -o artifacts -p:Version=${{ steps.version.outputs.value }}
+          dotnet pack src/SafePatch.Mcp -c Release -o artifacts -p:Version=${{ steps.version.outputs.value }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: artifacts/*.nupkg
+
+  publish:
+    name: Publish to nuget.org
+    needs: pack
+    runs-on: windows-latest
+    environment: nuget
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: artifacts
+
+      - name: Push
+        shell: pwsh
+        run: |
+          Get-ChildItem artifacts/*.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }

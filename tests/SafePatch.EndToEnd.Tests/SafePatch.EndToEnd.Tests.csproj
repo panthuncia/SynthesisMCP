@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Launches the real Synthesis CLI and Mod Organizer 2. The pinned tools are fetched before build. -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Generator\SafePatch.Generator.csproj" />
+  </ItemGroup>
+
+  <!--
+    Tool acquisition. Override the cache with -p:E2EToolsRoot=... or the SAFEPATCH_E2E_TOOLS environment
+    variable; skip it (the tests then skip) with -p:SkipE2ETools=true.
+  -->
+  <PropertyGroup>
+    <E2EToolsScript>$(MSBuildThisFileDirectory)..\..\eng\e2e-tools\Get-E2ETools.ps1</E2EToolsScript>
+    <E2EToolsRoot Condition="'$(E2EToolsRoot)' == ''">$(SAFEPATCH_E2E_TOOLS)</E2EToolsRoot>
+    <E2EToolsRoot Condition="'$(E2EToolsRoot)' == ''">$(LOCALAPPDATA)\SafePatch\e2e-tools</E2EToolsRoot>
+  </PropertyGroup>
+
+  <Target Name="AcquireE2ETools" BeforeTargets="Build"
+          Condition="'$(OS)' == 'Windows_NT' and '$(SkipE2ETools)' != 'true'"
+          Inputs="$(E2EToolsScript)" Outputs="$(E2EToolsRoot)\tools.json">
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(E2EToolsScript)&quot; -ToolsRoot &quot;$(E2EToolsRoot)&quot;" />
+  </Target>
+
+  <Target Name="CopyE2EToolsManifest" AfterTargets="Build" Condition="Exists('$(E2EToolsRoot)\tools.json') and '$(SkipE2ETools)' != 'true'">
+    <Copy SourceFiles="$(E2EToolsRoot)\tools.json" DestinationFiles="$(OutDir)e2e-tools.json" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

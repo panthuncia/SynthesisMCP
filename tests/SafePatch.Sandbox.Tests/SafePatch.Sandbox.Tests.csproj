@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- Through SafePatch.Synthesis, brings the worker into SafePatch.Worker\ as a patcher gets it. -->
+    <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Sandbox.Windows\SafePatch.Sandbox.Windows.csproj" />
+  </ItemGroup>
+</Project>

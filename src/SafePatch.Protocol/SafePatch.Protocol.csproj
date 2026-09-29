@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Wire format shared by host and worker. No dependencies. -->
+</Project>

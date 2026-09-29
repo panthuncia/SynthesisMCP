@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SafePatch.Authoring/SafePatch.Authoring.csproj" />
+    <Project Path="src/SafePatch.Cli/SafePatch.Cli.csproj" />
+    <Project Path="src/SafePatch.Mcp/SafePatch.Mcp.csproj" />
+    <Project Path="src/SafePatch.Compiler/SafePatch.Compiler.csproj" />
+    <Project Path="src/SafePatch.Generator/SafePatch.Generator.csproj" />
+    <Project Path="src/SafePatch.Host/SafePatch.Host.csproj" />
+    <Project Path="src/SafePatch.Mutagen/SafePatch.Mutagen.csproj" />
+    <Project Path="src/SafePatch.Protocol/SafePatch.Protocol.csproj" />
+    <Project Path="src/SafePatch.Sandbox.Windows/SafePatch.Sandbox.Windows.csproj" />
+    <Project Path="src/SafePatch.Synthesis/SafePatch.Synthesis.csproj" />
+    <Project Path="src/SafePatch.Worker.Core/SafePatch.Worker.Core.csproj" />
+    <Project Path="src/SafePatch.Worker/SafePatch.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SafePatch.Architecture.Tests/SafePatch.Architecture.Tests.csproj" />
+    <Project Path="tests/SafePatch.Authoring.Tests/SafePatch.Authoring.Tests.csproj" />
+    <Project Path="tests/SafePatch.Compiler.Tests/SafePatch.Compiler.Tests.csproj" />
+    <Project Path="tests/SafePatch.EndToEnd.Tests/SafePatch.EndToEnd.Tests.csproj" />
+    <Project Path="tests/SafePatch.Generator.Tests/SafePatch.Generator.Tests.csproj" />
+    <Project Path="tests/SafePatch.Host.Tests/SafePatch.Host.Tests.csproj" />
+    <Project Path="tests/SafePatch.Mcp.Tests/SafePatch.Mcp.Tests.csproj" />
+    <Project Path="tests/SafePatch.Mutagen.Tests/SafePatch.Mutagen.Tests.csproj" />
+    <Project Path="tests/SafePatch.Protocol.Tests/SafePatch.Protocol.Tests.csproj" />
+    <Project Path="tests/SafePatch.Sandbox.Tests/SafePatch.Sandbox.Tests.csproj" />
+    <Project Path="tests/SafePatch.TestSupport/SafePatch.TestSupport.csproj" />
+    <Project Path="tests/SafePatch.Worker.Core.Tests/SafePatch.Worker.Core.Tests.csproj" />
+  </Folder>
+</Solution>

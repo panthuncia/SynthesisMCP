@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The authoring service (design section 9): read a load order, check and test programs, package patchers.
+       The CLI and the MCP server are thin front ends over it. Nothing here writes to a load order. -->
+  <ItemGroup>
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Compiler\SafePatch.Compiler.csproj" />
+    <ProjectReference Include="..\SafePatch.Generator\SafePatch.Generator.csproj" />
+    <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" />
+    <ProjectReference Include="..\SafePatch.Mutagen\SafePatch.Mutagen.csproj" />
+    <!-- Test runs use the real host composition, and bring the worker into SafePatch.Worker\. -->
+    <ProjectReference Include="..\SafePatch.Synthesis\SafePatch.Synthesis.csproj" />
+    <ProjectReference Include="..\SafePatch.Sandbox.Windows\SafePatch.Sandbox.Windows.csproj" />
+  </ItemGroup>
+</Project>

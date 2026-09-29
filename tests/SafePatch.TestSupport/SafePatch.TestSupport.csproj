@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Fakes and fixture builders. Test-only: production code must never reference this. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SafePatch.Host\SafePatch.Host.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Worker.Core\SafePatch.Worker.Core.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Mutagen\SafePatch.Mutagen.csproj" />
+    <!-- SynthesisInputs: the planner the real host uses. -->
+    <ProjectReference Include="..\..\src\SafePatch.Synthesis\SafePatch.Synthesis.csproj" />
+  </ItemGroup>
+</Project>

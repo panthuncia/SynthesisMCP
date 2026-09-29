@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Compiles agent source against Mutagen/Synthesis and rejects anything outside the API allow-list. -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Basic.Reference.Assemblies.Net100" />
+    <!-- The API programs compile against: the same assemblies the worker ships. -->
+    <PackageReference Include="Mutagen.Bethesda.Synthesis" />
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+  </ItemGroup>
+</Project>

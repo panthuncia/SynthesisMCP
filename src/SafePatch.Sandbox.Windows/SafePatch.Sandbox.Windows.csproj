@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Win32 edge: launches the worker in an AppContainer inside a Job Object. -->
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" />
+  </ItemGroup>
+</Project>

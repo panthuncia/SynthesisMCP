@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Nothing ambient: no globalization data or config probing the sandbox would have to grant. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Worker.Core\SafePatch.Worker.Core.csproj" />
+  </ItemGroup>
+</Project>

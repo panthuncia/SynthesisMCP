@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <!-- The client side of the official SDK, to call the server as an MCP host would. -->
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
+    <!-- Builds the server into this output, with its worker folder. -->
+    <ProjectReference Include="..\..\src\SafePatch.Mcp\SafePatch.Mcp.csproj" />
+  </ItemGroup>
+</Project>

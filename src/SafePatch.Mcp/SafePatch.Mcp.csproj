@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- An MCP server (stdio) exposing the authoring operations as tools, one to one. It has no tool that
+       writes to a load order: test runs use a temporary folder, and packaging writes only a new patcher. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>safepatch-mcp</AssemblyName>
+    <RootNamespace>SafePatch.Mcp</RootNamespace>
+    <!-- Installed with `dotnet tool install`; the worker folder comes along in the tool's publish output. -->
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <Version>0.1.0</Version>
+    <Authors>SafeSynthesis</Authors>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageId>SafePatch.Mcp</PackageId>
+    <ToolCommandName>safepatch-mcp</ToolCommandName>
+    <Description>MCP server (stdio) for authoring sandboxed SafePatch patchers against a Skyrim load order.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Authoring\SafePatch.Authoring.csproj" />
+  </ItemGroup>
+</Project>

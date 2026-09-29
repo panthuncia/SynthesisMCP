@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Runs inside the sandbox: the real Synthesis pipeline over a brokered, read-only file system.
+       Must never reference Host or anything with authority outside the worker. -->
+  <ItemGroup>
+    <PackageReference Include="Mutagen.Bethesda.Synthesis" />
+    <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+    <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.Protocol\SafePatch.Protocol.csproj" />
+  </ItemGroup>
+</Project>
