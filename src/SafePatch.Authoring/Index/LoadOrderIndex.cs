@@ -240,48 +240,16 @@ public sealed class LoadOrderIndex
     /// <summary>What the index keeps of one record version, and the record it is nested in.</summary>
     private readonly record struct Entry(FormKey FormKey, uint Signature, string? EditorId, bool IsDeleted, FormKey? Parent);
 
-    /// <summary>The top-level groups whose records are read as they are (worldspaces and cells are walked instead).</summary>
-    private static readonly System.Reflection.PropertyInfo[] Groups = [.. typeof(ISkyrimModGetter).GetProperties()
-        .Where(p => typeof(IGroupGetter).IsAssignableFrom(p.PropertyType) && p.Name != nameof(ISkyrimModGetter.Worldspaces))];
-
-    /// <summary>
-    /// A plugin's records in batches that can be read on different threads (as Mutagen's
-    /// <c>EnumerateMajorRecordBatches</c>), each with the record it is nested in: each top-level group, each worldspace
-    /// with its persistent cell, and each block of interior or exterior cells. A parent comes before its children.
-    /// </summary>
-    private static IEnumerable<IEnumerable<(IMajorRecordGetter Record, IMajorRecordGetter? Parent)>> Batches(ISkyrimModGetter mod)
-    {
-        static IEnumerable<(IMajorRecordGetter, IMajorRecordGetter?)> WithChildren(IMajorRecordGetter record, IMajorRecordGetter? parent) =>
-            record is IMajorRecordGetterEnumerable children
-                ? children.EnumerateMajorRecords().Select(child => (child, (IMajorRecordGetter?)record)).Prepend((record, parent))
-                : [(record, parent)];
-
-        foreach (var property in Groups)
-        {
-            yield return ((IGroupGetter)property.GetValue(mod)!).Records.SelectMany(r => WithChildren(r, null));
-        }
-        foreach (var block in mod.Cells.Records)
-        {
-            foreach (var subBlock in block.SubBlocks) yield return subBlock.Cells.SelectMany(c => WithChildren(c, null));
-        }
-        foreach (var world in mod.Worldspaces)
-        {
-            yield return world.TopCell is { } top ? WithChildren(top, world).Prepend((world, null)) : [(world, null)];
-            foreach (var block in world.SubCells)
-            {
-                foreach (var subBlock in block.Items) yield return subBlock.Items.SelectMany(c => WithChildren(c, world));
-            }
-        }
-    }
-
     /// <summary>
     /// Reads every plugin's records (all plugins' batches in parallel) and builds the index, in load order.
-    /// <paramref name="paths"/> are the plugins' files, which the raw text searches read.
+    /// <paramref name="paths"/> are the plugins' files, which the raw text searches read. Mutagen's
+    /// <c>EnumerateMajorRecordBatches</c> splits each plugin into batches (each top-level group, each worldspace with
+    /// its persistent cell, each block of interior or exterior cells), and gives each record the one it is nested in.
     /// </summary>
     public static LoadOrderIndex Build(IReadOnlyList<ISkyrimModGetter> mods, IReadOnlyList<string> paths)
     {
         var clock = Stopwatch.StartNew();
-        var batches = mods.SelectMany((mod, p) => Batches(mod).Select(batch => (Plugin: p, Records: batch))).ToList();
+        var batches = mods.SelectMany((mod, p) => mod.EnumerateMajorRecordBatches().Select(batch => (Plugin: p, Records: batch))).ToList();
         var read = new Entry[batches.Count][];
         Parallel.For(0, batches.Count, b => read[b] = [.. batches[b].Records.Select(r =>
             new Entry(r.Record.FormKey, RecordTypes.SignatureOf(r.Record), r.Record.EditorID, r.Record.IsDeleted, r.Parent?.FormKey))]);
