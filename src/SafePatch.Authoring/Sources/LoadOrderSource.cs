@@ -30,7 +30,7 @@ public sealed record DataFolderSource(string DataFolder, string PluginsFile, Gam
         if (!File.Exists(PluginsFile)) throw new SafePatchException($"Plugins file {PluginsFile} does not exist.");
         var data = Path.GetFullPath(DataFolder);
         var plugins = Path.GetFullPath(PluginsFile);
-        return new ResolvedSource($"Data folder {data}", Release, new DataView(data, [new DataLayer("Data", data)]), plugins, GameIni: null,
+        return new ResolvedSource($"Data folder {data}", Release, new DataView(data, [DataLayer.GameData(data)]), plugins, GameIni: null,
             [plugins], [data], []);
     }
 }

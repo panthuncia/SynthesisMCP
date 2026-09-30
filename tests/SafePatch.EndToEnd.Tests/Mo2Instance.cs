@@ -33,7 +33,6 @@ public sealed partial class Mo2Instance
 
             [Settings]
             check_for_updates=false
-            executable_blacklist=SafePatch.Worker.exe
             """);
         foreach (var folder in new[] { "mods", "overwrite", "downloads", Path.Combine("profiles", ProfileName) })
             System.IO.Directory.CreateDirectory(Path.Combine(Directory, folder));

@@ -29,17 +29,19 @@ covers it; the test named is the one to rerun after a change.
 | | Status | What to do |
 | --- | --- | --- |
 | None (plain Data folder) | Tested | Nothing. |
-| Mod Organizer 2 2.5.2 | Tested (`Mo2LaunchTests`, run manually) | Add `SafePatch.Worker.exe` to MO2's executables blacklist (Settings > Workarounds). Let Synthesis build the patcher once outside MO2, because building under MO2 crashes the C# compiler (a known Synthesis issue). |
+| Mod Organizer 2 2.5.2 | Tested (`Mo2LaunchTests`, run manually) | Nothing in MO2's settings. Let Synthesis build the patcher once outside MO2, because building under MO2 crashes the C# compiler (a known Synthesis issue). |
 | Vortex | Not tested | Vortex deploys into the real Data folder, which SafePatch reads as it does without a manager. |
 
-**Authoring against an MO2 profile** (`--mo2`) is tested with fake instances (`LoadOrderSourceTests`): SafePatch
-reads `ModOrganizer.ini`, the profile's `modlist.txt` and `plugins.txt`, and layers the game's Data folder, the
-enabled mods and overwrite itself, without MO2 or its virtual file system. It only reads, and an open load order
-never stops MO2 from deleting a mod or renaming a plugin away (ADR 008).
+**Authoring against an MO2 instance** (`--mo2`) runs inside MO2's virtual file system: `safepatch` and
+`safepatch-mcp` restart themselves through MO2 and relay their standard streams to that copy (`Mo2LaunchTests`,
+`Mo2RelayTests`). SafePatch reads `ModOrganizer.ini`, the profile's `modlist.txt` and `plugins.txt`, and names the mod
+each file comes from; with `--no-vfs` it layers the game's Data folder, the enabled mods and overwrite itself,
+without MO2 (`LoadOrderSourceTests`, with fake instances). It only reads, and an open load order never stops MO2 from
+deleting a mod or renaming a plugin away (ADR 008).
 
 Under MO2, the worker does not need the virtual file system: the host, which runs inside MO2, opens every file
-and hands the worker read-only handles. If the worker is not blacklisted, it crashes on start and the run
-fails with a message naming the blacklist setting (ADR 002, "MO2").
+and hands the worker read-only handles. MO2 still injects usvfs into it; the worker starts without CET shadow
+stacks there, so the injection does no harm (ADR 002, "MO2").
 
 ## Games
 

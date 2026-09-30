@@ -49,8 +49,10 @@ Test categories:
   needs `SAFEPATCH_GAME_DATA` (a Skyrim Data folder) and `SAFEPATCH_GAME_PLUGINS` (a plugins.txt) and skips without
   them. Run it after changes to the committer, `ModCodec` or `RecordDiff`.
 - `MO2` launches it through Mod Organizer 2. It skips while another MO2 or usvfs-hooked process is running:
-  MO2 2.5.2 shares one usvfs instance per session, so the test would join and disturb it. Under MO2 the worker
-  must be on MO2's executables blacklist and patchers need `<CETCompat>false</CETCompat>` (ADR 002, "MO2").
+  MO2 2.5.2 shares one usvfs instance per session, so the test would join and disturb it. MO2 is the primary
+  target: with `--mo2`, `safepatch` and `safepatch-mcp` restart themselves inside MO2's virtual file system
+  (`Mo2Relay`). Under MO2 the worker starts without CET shadow stacks, and patchers and the front ends are built
+  with `<CETCompat>false</CETCompat>` (ADR 002, "MO2").
 - Processes the E2E tests start run with MSBuild node reuse and the compiler server off; otherwise Synthesis
   hangs reading `dotnet build` output until those servers idle out.
 
@@ -72,7 +74,8 @@ EndToEnd tests build. The tool cache is `%LOCALAPPDATA%\SafePatch\e2e-tools`. Sk
   where the SDK's host needs one.
 - `Authoring` is the service behind the `safepatch` CLI (`Cli`) and MCP server (`Mcp`). The front ends map one
   to one onto it, add no logic of their own, and never write to a load order. Load orders come from a
-  `LoadOrderSource` (a Data folder, or an MO2 profile read without MO2) through a read-only `DataView`. Queries
+  `LoadOrderSource` (an MO2 profile, read inside MO2's virtual file system or with `--no-vfs` without it, or a Data
+  folder) through a read-only `DataView`. Queries
   (`Query/QueryService`) return a `ResultSet`, which `AuthoringSession` renders within a budget and keeps under a
   handle. Never return a whole result unbudgeted to an agent.
 - Queries choose records from `Index/LoadOrderIndex`, built once per snapshot from every plugin's Mutagen overlay

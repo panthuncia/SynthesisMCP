@@ -21,6 +21,9 @@ public sealed class LoadOrderSnapshot : IDisposable
     private readonly IReadOnlyDictionary<string, DateTime> _stamps;
     private readonly Lazy<LoadOrderIndex> _index;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<(int Plugin, Type Getter), IGroupGetter?> _groups = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, IReadOnlyDictionary<FormKey, IMajorRecordGetter>> _interiorCells = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(int Plugin, int Parent), IReadOnlyDictionary<FormKey, IMajorRecordGetter>> _children = new();
+    private const int MaxCachedParents = 256;
 
     private LoadOrderSnapshot(LoadOrderSource source, ResolvedSource resolved, ILoadOrder<IModListing<ISkyrimModGetter>> loadOrder, DataViewFileSystem fileSystem)
     {
@@ -65,19 +68,54 @@ public sealed class LoadOrderSnapshot : IDisposable
     public bool IsIndexed => _index.IsValueCreated;
 
     /// <summary>
-    /// One version of a record, read through its plugin's overlay: from the plugin's group for its type, or, for a
-    /// record in a cell or worldspace, through the link cache. Every version is read the same way, so versions compare.
+    /// One version of a record, read through its plugin's overlay: a top-level record from the plugin's group for its
+    /// type, an interior cell from the plugin's cell blocks, and a nested record (a placed reference, an exterior cell,
+    /// a topic's response) from the version of its parent the same plugin holds. Every version is read the same way,
+    /// so versions compare.
     /// </summary>
     /// <param name="version">Which version: 0 is the original.</param>
     public IMajorRecordGetter? Read(RecordChain chain, int version)
     {
         if (Query.RecordTypes.GetterOf(chain.Signature) is not { } getter) return null;
-        var mod = Mods[chain.PluginAt(version)];
+        var plugin = chain.PluginAt(version);
+        if (chain.ParentAt(version) is { } parentChain)
+        {
+            return parentChain.VersionOf(plugin) is var parentVersion and >= 0 && Read(parentChain, parentVersion) is { } parent
+                ? ChildrenOf(plugin, parentChain, parent).GetValueOrDefault(chain.FormKey)
+                : null;
+        }
+        if (getter == typeof(ICellGetter)) return InteriorCells(plugin).GetValueOrDefault(chain.FormKey);
         // Looked up once per plugin and type; the overlay keeps the group itself.
-        var group = _groups.GetOrAdd((chain.PluginAt(version), getter), key => Mods[key.Plugin].TryGetTopLevelGroup(key.Getter));
+        var group = _groups.GetOrAdd((plugin, getter), key => Mods[key.Plugin].TryGetTopLevelGroup(key.Getter));
         if (group is not null) return group.ContainsKey(chain.FormKey) ? group[chain.FormKey] : null;
-        // Cells live in blocks rather than a group of their own.
-        return LinkCache.ResolveAllContexts(chain.FormKey, getter).FirstOrDefault(c => c.ModKey == mod.ModKey)?.Record;
+        return LinkCache.ResolveAllContexts(chain.FormKey, getter).FirstOrDefault(c => c.ModKey == Mods[plugin].ModKey)?.Record;
+    }
+
+    /// <summary>A plugin's interior cells, by FormKey, listed once.</summary>
+    private IReadOnlyDictionary<FormKey, IMajorRecordGetter> InteriorCells(int plugin) =>
+        _interiorCells.GetOrAdd(plugin, p => Mods[p].Cells.Records
+            .SelectMany(block => block.SubBlocks).SelectMany(subBlock => subBlock.Cells)
+            .GroupBy(cell => cell.FormKey).ToDictionary(g => g.Key, g => (IMajorRecordGetter)g.First()));
+
+    /// <summary>
+    /// The records nested directly in one version of a record, by FormKey: a worldspace's cells, or a cell's placed
+    /// references, navmeshes and landscape, or a topic's responses. A query reading many records of one cell lists it
+    /// once; the most recent parents are kept.
+    /// </summary>
+    private IReadOnlyDictionary<FormKey, IMajorRecordGetter> ChildrenOf(int plugin, RecordChain parentChain, IMajorRecordGetter parent)
+    {
+        if (_children.Count > MaxCachedParents) _children.Clear();
+        return _children.GetOrAdd((plugin, parentChain.GetHashCode()), _ =>
+        {
+            IEnumerable<IMajorRecordGetter> children = parent switch
+            {
+                IWorldspaceGetter world => (world.TopCell is { } top ? [top] : Enumerable.Empty<IMajorRecordGetter>())
+                    .Concat(world.SubCells.SelectMany(block => block.Items).SelectMany(subBlock => subBlock.Items)),
+                IMajorRecordGetterEnumerable nested => nested.EnumerateMajorRecords(),
+                _ => [],
+            };
+            return children.GroupBy(child => child.FormKey).ToDictionary(g => g.Key, g => g.First());
+        });
     }
 
     /// <summary>Unique to this snapshot: result handles from another snapshot are refused.</summary>

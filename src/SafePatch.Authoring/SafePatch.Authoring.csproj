@@ -7,6 +7,9 @@
     <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="SafePatch.Authoring.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\SafePatch.Compiler\SafePatch.Compiler.csproj" />
     <ProjectReference Include="..\SafePatch.Generator\SafePatch.Generator.csproj" />
     <ProjectReference Include="..\SafePatch.Host\SafePatch.Host.csproj" />

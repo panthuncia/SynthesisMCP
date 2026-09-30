@@ -30,6 +30,12 @@ public readonly struct RecordChain : IEquatable<RecordChain>
     /// <summary>The plugin (an index into <see cref="LoadOrderIndex.Plugins"/>) holding the <paramref name="version"/>th version, lowest priority first.</summary>
     public int PluginAt(int version) => _index.VersionPlugin(_id, version);
 
+    /// <summary>
+    /// The record the <paramref name="version"/>th version is nested in (a placed reference's cell, a cell's
+    /// worldspace, a response's topic), in the same plugin, or null for a top-level record.
+    /// </summary>
+    public RecordChain? ParentAt(int version) => _index.VersionParent(_id, version) is var parent and >= 0 ? new RecordChain(_index, parent) : null;
+
     /// <summary>The plugins holding a version, lowest priority first.</summary>
     public int[] Plugins => [.. Enumerable.Range(0, Versions).Select(PluginAt)];
 
@@ -92,6 +98,7 @@ public sealed class LoadOrderIndex
     private readonly int[] _editorIds;         // start in _editorIdPool, or -1
     private readonly ChainFlags[] _flags;
     private readonly int[] _versionPlugins;
+    private readonly int[] _versionParents;    // the id of the record each version is nested in, or -1
     private readonly byte[] _editorIdPool;     // length (ushort) then Latin-1 bytes
     private readonly ModKey[] _modKeys;
     private readonly Dictionary<ModKey, int> _modKeyIds;
@@ -120,11 +127,17 @@ public sealed class LoadOrderIndex
         // Versions arrive plugin by plugin; a stable counting sort makes each record's versions contiguous, in load order.
         var count = _keys.Length;
         _versionStart = new int[count + 1];
-        foreach (var (id, _) in built.Versions) _versionStart[id + 1]++;
+        foreach (var (id, _, _) in built.Versions) _versionStart[id + 1]++;
         for (var i = 0; i < count; i++) _versionStart[i + 1] += _versionStart[i];
         _versionPlugins = new int[built.Versions.Count];
+        _versionParents = new int[built.Versions.Count];
         var next = _versionStart[..count];
-        foreach (var (id, plugin) in built.Versions) _versionPlugins[next[id]++] = plugin;
+        foreach (var (id, plugin, parent) in built.Versions)
+        {
+            var slot = next[id]++;
+            _versionPlugins[slot] = plugin;
+            _versionParents[slot] = parent;
+        }
 
         _sortedKeys = (ulong[])_keys.Clone();
         _sortedKeyIds = [.. Enumerable.Range(0, count)];
@@ -204,6 +217,7 @@ public sealed class LoadOrderIndex
     internal uint SignatureOf(int id) => _signatures[id];
     internal int VersionCount(int id) => _versionStart[id + 1] - _versionStart[id];
     internal int VersionPlugin(int id, int version) => _versionPlugins[_versionStart[id] + version];
+    internal int VersionParent(int id, int version) => _versionParents[_versionStart[id] + version];
     internal ChainFlags FlagsOf(int id) => _flags[id];
     internal bool EditorIdMatches(int id, EditorIdGlob glob) => _editorIds[id] >= 0 && glob.IsMatch(EditorIdBytes(id));
     internal string? EditorIdOf(int id) => _editorIds[id] < 0 ? null : Encoding.Latin1.GetString(EditorIdBytes(id));
@@ -223,8 +237,42 @@ public sealed class LoadOrderIndex
         return hash;
     }
 
-    /// <summary>What the index keeps of one record version.</summary>
-    private readonly record struct Entry(FormKey FormKey, uint Signature, string? EditorId, bool IsDeleted);
+    /// <summary>What the index keeps of one record version, and the record it is nested in.</summary>
+    private readonly record struct Entry(FormKey FormKey, uint Signature, string? EditorId, bool IsDeleted, FormKey? Parent);
+
+    /// <summary>The top-level groups whose records are read as they are (worldspaces and cells are walked instead).</summary>
+    private static readonly System.Reflection.PropertyInfo[] Groups = [.. typeof(ISkyrimModGetter).GetProperties()
+        .Where(p => typeof(IGroupGetter).IsAssignableFrom(p.PropertyType) && p.Name != nameof(ISkyrimModGetter.Worldspaces))];
+
+    /// <summary>
+    /// A plugin's records in batches that can be read on different threads (as Mutagen's
+    /// <c>EnumerateMajorRecordBatches</c>), each with the record it is nested in: each top-level group, each worldspace
+    /// with its persistent cell, and each block of interior or exterior cells. A parent comes before its children.
+    /// </summary>
+    private static IEnumerable<IEnumerable<(IMajorRecordGetter Record, IMajorRecordGetter? Parent)>> Batches(ISkyrimModGetter mod)
+    {
+        static IEnumerable<(IMajorRecordGetter, IMajorRecordGetter?)> WithChildren(IMajorRecordGetter record, IMajorRecordGetter? parent) =>
+            record is IMajorRecordGetterEnumerable children
+                ? children.EnumerateMajorRecords().Select(child => (child, (IMajorRecordGetter?)record)).Prepend((record, parent))
+                : [(record, parent)];
+
+        foreach (var property in Groups)
+        {
+            yield return ((IGroupGetter)property.GetValue(mod)!).Records.SelectMany(r => WithChildren(r, null));
+        }
+        foreach (var block in mod.Cells.Records)
+        {
+            foreach (var subBlock in block.SubBlocks) yield return subBlock.Cells.SelectMany(c => WithChildren(c, null));
+        }
+        foreach (var world in mod.Worldspaces)
+        {
+            yield return world.TopCell is { } top ? WithChildren(top, world).Prepend((world, null)) : [(world, null)];
+            foreach (var block in world.SubCells)
+            {
+                foreach (var subBlock in block.Items) yield return subBlock.Items.SelectMany(c => WithChildren(c, world));
+            }
+        }
+    }
 
     /// <summary>
     /// Reads every plugin's records (all plugins' batches in parallel) and builds the index, in load order.
@@ -233,10 +281,10 @@ public sealed class LoadOrderIndex
     public static LoadOrderIndex Build(IReadOnlyList<ISkyrimModGetter> mods, IReadOnlyList<string> paths)
     {
         var clock = Stopwatch.StartNew();
-        var batches = mods.SelectMany((mod, p) => mod.EnumerateMajorRecordBatches().Select(batch => (Plugin: p, Records: batch))).ToList();
+        var batches = mods.SelectMany((mod, p) => Batches(mod).Select(batch => (Plugin: p, Records: batch))).ToList();
         var read = new Entry[batches.Count][];
         Parallel.For(0, batches.Count, b => read[b] = [.. batches[b].Records.Select(r =>
-            new Entry(r.FormKey, RecordTypes.SignatureOf(r), r.EditorID, r.IsDeleted))]);
+            new Entry(r.Record.FormKey, RecordTypes.SignatureOf(r.Record), r.Record.EditorID, r.Record.IsDeleted, r.Parent?.FormKey))]);
         var readTime = clock.Elapsed;
 
         var built = new Builder(read.Sum(r => r.Length));
@@ -273,7 +321,7 @@ public sealed class LoadOrderIndex
         public readonly List<int> EditorIds = new(capacity);
         public readonly List<ChainFlags> Flags = new(capacity);
         public readonly List<byte> EditorIdPool = [];
-        public readonly List<(int Id, int Plugin)> Versions = new(capacity);
+        public readonly List<(int Id, int Plugin, int Parent)> Versions = new(capacity);
         private readonly Dictionary<ulong, int> _ids = new(capacity);
         private readonly Dictionary<string, int> _editorIdStarts = new(StringComparer.Ordinal);
         private int _lastPlugin = -1;
@@ -287,13 +335,7 @@ public sealed class LoadOrderIndex
                 _inPlugin.Clear();
                 _lastPlugin = plugin;
             }
-            if (!ModKeyIds.TryGetValue(formKey.ModKey, out var mod))
-            {
-                mod = ModKeys.Count;
-                ModKeys.Add(formKey.ModKey);
-                ModKeyIds[formKey.ModKey] = mod;
-            }
-            var key = ((ulong)mod << 32) | formKey.ID;
+            var key = Key(formKey);
             var deleted = record.IsDeleted ? ChainFlags.WinnerDeleted | ChainFlags.AnyDeleted : ChainFlags.None;
             if (_ids.TryGetValue(key, out var id))
             {
@@ -311,7 +353,19 @@ public sealed class LoadOrderIndex
                 EditorIds.Add(record.EditorId is { } editorId ? EditorIdStart(editorId) : -1);
                 Flags.Add(deleted);
             }
-            Versions.Add((id, plugin));
+            Versions.Add((id, plugin, record.Parent is { } parent ? _ids[Key(parent)] : -1));
+        }
+
+        /// <summary>A FormKey as the index keys it; its plugin is added to the table on first sight.</summary>
+        private ulong Key(FormKey formKey)
+        {
+            if (!ModKeyIds.TryGetValue(formKey.ModKey, out var mod))
+            {
+                mod = ModKeys.Count;
+                ModKeys.Add(formKey.ModKey);
+                ModKeyIds[formKey.ModKey] = mod;
+            }
+            return ((ulong)mod << 32) | formKey.ID;
         }
 
         /// <summary>Overrides repeat their master's EditorID: each distinct one is stored once.</summary>

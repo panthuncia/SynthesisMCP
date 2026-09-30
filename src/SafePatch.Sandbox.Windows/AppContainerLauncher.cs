@@ -203,7 +203,11 @@ public sealed class AppContainerLauncher(SandboxOptions options) : IWorkerLaunch
 
     private PROCESS_INFORMATION StartSuspended(string commandLine, string directory, IntPtr sid, IntPtr[] inheritedHandles)
     {
-        var attributeCount = options.LessPrivileged ? 4 : 3;
+        // Under MO2, usvfs injects itself into every process started here by redirecting its first thread through a
+        // stub that returns with a plain `ret`, which a CET shadow stack refuses. So under MO2 alone the worker starts
+        // without shadow stacks; the stub then cannot load usvfs from inside the container and returns (ADR 002, "MO2").
+        var underMo2 = Mo2Vfs.Active;
+        var attributeCount = 3 + (options.LessPrivileged ? 1 : 0) + (underMo2 ? 1 : 0);
         var size = IntPtr.Zero;
         InitializeProcThreadAttributeList(IntPtr.Zero, attributeCount, 0, ref size);
         var attributes = Marshal.AllocHGlobal(size);
@@ -211,6 +215,7 @@ public sealed class AppContainerLauncher(SandboxOptions options) : IWorkerLaunch
         var handles = Marshal.AllocHGlobal(IntPtr.Size * inheritedHandles.Length);
         var childPolicy = Marshal.AllocHGlobal(sizeof(uint));
         var packagesPolicy = Marshal.AllocHGlobal(sizeof(uint));
+        var mitigationPolicy = Marshal.AllocHGlobal(2 * sizeof(ulong));
         var environment = Marshal.StringToHGlobalUni(EnvironmentBlock());
         var initialized = false;
         try
@@ -228,6 +233,12 @@ public sealed class AppContainerLauncher(SandboxOptions options) : IWorkerLaunch
             Update(attributes, PROC_THREAD_ATTRIBUTE_CHILD_PROCESS_POLICY, childPolicy, sizeof(uint));
             if (options.LessPrivileged)
                 Update(attributes, PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY, packagesPolicy, sizeof(uint));
+            if (underMo2)
+            {
+                Marshal.WriteInt64(mitigationPolicy, 0);
+                Marshal.WriteInt64(mitigationPolicy, sizeof(ulong), (long)PROCESS_CREATION_MITIGATION_POLICY2_CET_USER_SHADOW_STACKS_ALWAYS_OFF);
+                Update(attributes, PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY, mitigationPolicy, 2 * sizeof(ulong));
+            }
 
             var startup = new STARTUPINFOEX { lpAttributeList = attributes };
             startup.StartupInfo.cb = Marshal.SizeOf<STARTUPINFOEX>();
@@ -247,6 +258,7 @@ public sealed class AppContainerLauncher(SandboxOptions options) : IWorkerLaunch
             Marshal.FreeHGlobal(handles);
             Marshal.FreeHGlobal(childPolicy);
             Marshal.FreeHGlobal(packagesPolicy);
+            Marshal.FreeHGlobal(mitigationPolicy);
             Marshal.FreeHGlobal(environment);
         }
     }

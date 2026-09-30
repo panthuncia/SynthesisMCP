@@ -8,6 +8,8 @@
     <!-- Installed with `dotnet tool install`; the worker folder comes along in the tool's publish output. -->
     <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
+    <!-- It runs inside Mod Organizer 2's virtual file system, whose injection a CET shadow stack refuses (ADR 002, "MO2"). -->
+    <CETCompat>false</CETCompat>
     <Version>0.1.0</Version>
     <Authors>SafeSynthesis</Authors>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>

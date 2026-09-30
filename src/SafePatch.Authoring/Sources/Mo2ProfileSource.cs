@@ -5,9 +5,10 @@ using SafePatch.Synthesis;
 namespace SafePatch.Authoring.Sources;
 
 /// <summary>
-/// A Mod Organizer 2 profile, read the way MO2 builds its virtual Data folder, without MO2 or its virtual file
-/// system: the game's Data folder, then the profile's enabled mods from lowest to highest priority, then
-/// overwrite. The instance is only ever read.
+/// A Mod Organizer 2 profile, read the way MO2 builds its virtual Data folder: the game's Data folder, then the
+/// profile's enabled mods from lowest to highest priority, then overwrite. The instance is only ever read. It reads
+/// the same inside MO2's virtual file system (SafePatch's usual way to run, see <see cref="Mo2Relay"/>), where the
+/// game's Data folder shows MO2's whole view and the profile defaults to the one MO2 runs, and outside it.
 /// </summary>
 /// <param name="InstanceFolder">The folder holding <c>ModOrganizer.ini</c> (a portable instance's install folder, or
 /// a global instance under <c>%LOCALAPPDATA%\ModOrganizer</c>), or the ini itself.</param>
@@ -32,7 +33,10 @@ public sealed record Mo2ProfileSource(string InstanceFolder, string? Profile = n
         var overwrite = Setting("overwrite_directory", "overwrite");
         var profiles = Setting("profiles_directory", "profiles");
 
-        var profileName = Profile ?? ini.Get("General", "selected_profile") ?? "Default";
+        var running = DataLayer.UnderMo2 ? RunningProfile(release, instance, profiles) : null;
+        var profileName = Profile ?? running ?? ini.Get("General", "selected_profile") ?? "Default";
+        if (running is not null && !running.Equals(profileName, StringComparison.OrdinalIgnoreCase))
+            throw new SafePatchException($"Mod Organizer 2 is running profile {running}, not {profileName}. Switch to {profileName} in MO2, or leave out --profile.");
         var profile = Path.Combine(profiles, profileName);
         if (!Directory.Exists(profile)) throw new SafePatchException($"MO2 profile {profileName} does not exist in {profiles}.");
         var modList = Path.Combine(profile, "modlist.txt");
@@ -42,7 +46,7 @@ public sealed record Mo2ProfileSource(string InstanceFolder, string? Profile = n
 
         var data = Path.Combine(gamePath, "Data");
         var warnings = new List<string>();
-        var layers = new List<DataLayer> { new("Data", data) };
+        var layers = new List<DataLayer> { DataLayer.GameData(data) };
         foreach (var mod in EnabledMods(modList).Reverse())
         {
             var folder = Path.Combine(mods, mod);
@@ -60,6 +64,26 @@ public sealed record Mo2ProfileSource(string InstanceFolder, string? Profile = n
 
         return new ResolvedSource($"MO2 profile {profileName} in {instance}", release, new DataView(data, layers), plugins, gameIni ?? "",
             [modList, plugins], [instance, baseDirectory, mods, overwrite, profiles, gamePath], warnings);
+    }
+
+    /// <summary>
+    /// Inside MO2's virtual file system, the profile MO2 is running: MO2 maps its plugins.txt over the game's. Fails
+    /// closed when that plugins.txt is not one of this instance's profiles': MO2 2.5 hands a request to start a program
+    /// to whichever MO2 is running, so this process may be inside another instance's file system.
+    /// </summary>
+    private static string? RunningProfile(GameRelease release, string instance, string profiles)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        var mapped = global::Mutagen.Bethesda.Plugins.Order.PluginListings.GetListingsPath(release);
+        var real = Sandbox.Windows.Mo2Vfs.RealPath(mapped);
+        var folder = real is null ? null : Path.GetDirectoryName(real);
+        if (folder is null || !string.Equals(Path.GetDirectoryName(folder), Path.TrimEndingDirectorySeparator(profiles), StringComparison.OrdinalIgnoreCase))
+        {
+            throw new SafePatchException(
+                $"SafePatch runs inside a Mod Organizer 2 that is not the instance {instance}: the game's plugins.txt is {real ?? "missing"}, " +
+                $"not a profile's in {profiles}. MO2 hands SafePatch to whichever MO2 is running; close it, or pass that instance's folder to --mo2.");
+        }
+        return Path.GetFileName(folder);
     }
 
     /// <summary>

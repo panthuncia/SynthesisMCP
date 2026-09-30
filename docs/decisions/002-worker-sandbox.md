@@ -43,16 +43,36 @@ allocator.
 ## MO2
 
 Verified with MO2 2.5.2 (`Mo2LaunchTests`): the plugins exist only in an MO2 mod folder, Synthesis runs inside
-MO2's VFS, and SafePatch merges them with the worker still sandboxed. Three findings:
+MO2's VFS, and SafePatch merges them with the worker still sandboxed. Findings:
 
 - **usvfs and CET.** MO2 injects usvfs into every process started under it. .NET programs built with CET shadow
   stacks (the default since .NET 9) crash with `0xC0000005` when that happens. Synthesis turns CET off for its own
   programs and the patchers it creates (`<CETCompat>false</CETCompat>`), so the generated patcher template does
   too.
-- **The worker must not be injected.** It needs no VFS: the host opens every file it may read. The user adds
-  `SafePatch.Worker.exe` to MO2's executables blacklist (Settings > Workarounds). The worker then starts without
-  usvfs and keeps CET. Without that entry the worker crashes at startup, the run fails closed, and the host's error
-  says what to change.
+- **The worker is injected, harmlessly.** It needs no VFS: the host opens every file it may read. usvfs injects
+  itself by pointing a new process's first thread at a stub that loads `usvfs_x64.dll` and then returns with a plain
+  `ret`. A CET shadow stack refuses that return, so the worker crashed at startup unless the user put
+  `SafePatch.Worker.exe` on MO2's executables blacklist. SafePatch cannot add it for the user: usvfs's
+  `usvfsBlacklistExecutable` only works in MO2's own process (in an injected one its context is null, and calling it
+  crashes). So when the host runs under MO2 (usvfs is loaded in it), `AppContainerLauncher` starts the worker with
+  `PROCESS_CREATION_MITIGATION_POLICY2_CET_USER_SHADOW_STACKS_ALWAYS_OFF`. The stub then runs; the container cannot
+  read MO2's folder, so its `LoadLibrary` fails and it returns to the worker's normal start. Where the container can
+  read it, usvfs loads but cannot open its session's shared memory from the container, and installs no hooks.
+  **Trade-off:** under MO2 the worker loses CET's protection against return-oriented exploits of memory corruption.
+  It runs managed code under the API allow-list, and the AppContainer, Job Object and brokered handles are
+  unchanged, so this is defence in depth given up only there. A manual blacklist entry still works, and then MO2
+  does not inject at all.
+- **SafePatch itself runs inside MO2.** MO2 is the primary target. An MCP client or shell starts `safepatch-mcp` or
+  `safepatch` directly and talks over standard streams, but a program MO2 starts is not the client's child. With
+  `--mo2`, the copy the client started asks MO2 (`ModOrganizer.exe [-i <instance>] [-p <profile>] run ...`, which
+  hands the request to an MO2 already running) to start `dotnet <assembly>` inside its VFS, and relays standard
+  input, output, error and the exit code over a named pipe only the current user can open (`Mo2Relay`). The outside
+  copy checks the pipe's client is the program it asked MO2 to start. It starts `dotnet`, not the tool launcher
+  `dotnet tool install` writes, because that launcher is built for CET and would crash like the worker; the
+  projects themselves set `<CETCompat>false</CETCompat>` for when MO2 starts their executables directly. Inside,
+  the game's Data folder shows MO2's whole view: `DataView` counts a file as the game's only if it really lives
+  there (`GetFinalPathNameByHandle` gives the file usvfs opened), and the profile defaults to the one MO2 runs,
+  found from the plugins.txt MO2 maps over the game's. `--no-vfs` reads the profile without MO2, as before.
 - **Building under MO2 crashes csc.** This is a known Synthesis problem, not ours. Users let Synthesis build once
   outside MO2; later runs reuse that build. The test does the same.
 

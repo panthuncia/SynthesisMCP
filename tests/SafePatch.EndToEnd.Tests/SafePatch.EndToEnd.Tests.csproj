@@ -9,6 +9,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
     <ProjectReference Include="..\..\src\SafePatch.Generator\SafePatch.Generator.csproj" />
+    <!-- `safepatch`, started from outside MO2 to check it restarts itself inside MO2's virtual file system. -->
+    <ProjectReference Include="..\..\src\SafePatch.Cli\SafePatch.Cli.csproj" />
   </ItemGroup>
 
   <!--

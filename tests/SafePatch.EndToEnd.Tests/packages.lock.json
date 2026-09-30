@@ -442,6 +442,25 @@
           "xunit.v3.runner.common": "[3.2.2]"
         }
       },
+      "safepatch.authoring": {
+        "type": "Project",
+        "dependencies": {
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.1, 0.54.5-safepatch.1]",
+          "SafePatch.Compiler": "[1.0.0, )",
+          "SafePatch.Generator": "[1.0.0, )",
+          "SafePatch.Host": "[1.0.0, )",
+          "SafePatch.Mutagen": "[1.0.0, )",
+          "SafePatch.Sandbox.Windows": "[1.0.0, )",
+          "SafePatch.Synthesis": "[0.1.0, )",
+          "TestableIO.System.IO.Abstractions.TestingHelpers": "[22.1.1, )"
+        }
+      },
+      "safepatch.cli": {
+        "type": "Project",
+        "dependencies": {
+          "SafePatch.Authoring": "[1.0.0, )"
+        }
+      },
       "safepatch.compiler": {
         "type": "Project",
         "dependencies": {

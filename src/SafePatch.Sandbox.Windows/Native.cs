@@ -17,6 +17,8 @@ internal static class Native
     public static readonly IntPtr PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY = 0x0002000F;
     public const uint PROCESS_CREATION_CHILD_PROCESS_RESTRICTED = 0x01;
     public const uint PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT = 0x01;
+    public static readonly IntPtr PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY = 0x00020007;
+    public const ulong PROCESS_CREATION_MITIGATION_POLICY2_CET_USER_SHADOW_STACKS_ALWAYS_OFF = 0x2UL << 28;
 
     public const uint JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000008;
     public const uint JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x00000100;
@@ -148,5 +150,17 @@ internal static class Native
     [DllImport("kernel32.dll", SetLastError = true)]
     public static extern bool DuplicateHandle(IntPtr sourceProcess, SafeFileHandle sourceHandle, SafeProcessHandle targetProcess,
         out IntPtr targetHandle, uint desiredAccess, bool inheritHandle, uint options);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr GetModuleHandle(string moduleName);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern uint GetFinalPathNameByHandle(SafeFileHandle file, char[] path, uint length, uint flags);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint processId);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool FreeConsole();
 }
 #pragma warning restore SYSLIB1054

@@ -41,10 +41,8 @@ A SafePatch patcher is a normal Synthesis patcher repository. Its `REVIEW.md` li
 
 Synthesis builds it like any patcher, and needs the .NET 10 SDK to do so. SafePatch needs Windows 10 or 11.
 
-**Mod Organizer 2.** Add `SafePatch.Worker.exe` to MO2's executables blacklist (Settings > Workarounds >
-Executables Blacklist). The worker needs no virtual file system, because SafePatch opens every file for it, and
-it can't start with MO2's hooks. Let Synthesis build the patcher once outside MO2. Building under MO2 crashes
-the C# compiler, a known Synthesis issue.
+**Mod Organizer 2.** Run Synthesis from MO2 as usual; SafePatch needs no MO2 settings. Let Synthesis build the
+patcher once outside MO2: building under MO2 crashes the C# compiler, a known Synthesis issue.
 
 **Memory.** The sandboxed worker may use up to 4 GiB. For a patcher that needs more (a large load order read in
 full), set the environment variable `SAFEPATCH_WORKER_MEMORY_MB` for Synthesis, e.g. to `8192`. The authoring
@@ -114,11 +112,15 @@ operations:
 | Run it in the sandbox and see each field before and after | `test <program.cs> --writable ...` | `test_patch` |
 | Write a Synthesis patcher repository | `package <program.cs> --name ... --out ...` | `package_synthesis_patcher` |
 
-Load-order commands need `--data <Skyrim Data folder> --plugins <plugins.txt>`, or `--mo2 <MO2 instance folder>
-[--profile <name>]` for a Mod Organizer 2 profile. MO2 need not be running: SafePatch reads the profile's mod
-list and layers the mod folders itself, reads only, and never stops MO2 from changing mods while it has them
-open. Test runs and queries happen in the sandbox against that load order and write nothing to it. Run
-`safepatch` with no arguments for the full usage.
+Load-order commands need `--mo2 <MO2 instance folder>` for a Mod Organizer 2 instance, or `--data <Skyrim Data
+folder> --plugins <plugins.txt>`. With `--mo2`, SafePatch runs inside MO2's virtual file system, as xEdit and
+Synthesis do: it asks MO2 to start a second copy of itself, starting MO2 first if it is not running, and relays
+its input and output to that copy. It reads the profile MO2 is running (`--profile <name>` insists on one), and
+shows which mod each plugin and loose file comes from. It finds a portable instance's `ModOrganizer.exe` itself, or
+the MO2 that is running; otherwise pass `--mo2-exe <path>`. `--no-vfs` reads the profile without MO2, layering the
+mod folders itself. Either way SafePatch only reads, and never stops MO2 from changing mods while it has them open.
+Test runs and queries happen in the sandbox against that load order and write nothing to it. Run `safepatch` with
+no arguments for the full usage.
 
 The first query indexes every record in the load order, which takes under a second for the base game and its
 Creation Club content; later queries take milliseconds. Results are sized for an agent's context. Each MCP answer fits a character budget (8,000 by default): a large

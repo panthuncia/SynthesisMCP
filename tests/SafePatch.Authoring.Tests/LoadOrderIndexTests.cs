@@ -49,6 +49,9 @@ public sealed class LoadOrderIndexTests : IDisposable
                 var mutagen = plugin.EnumerateMajorRecords().First(r => r.FormKey == chain.FormKey);
                 var decoded = snapshot.Read(chain, v);
                 Assert.NotNull(decoded);
+                // Records nested in cells and topics are read through their parent, which the index must know (as it
+                // knows an exterior cell's worldspace).
+                if (PluginScanner.Name(chain.Signature) is "REFR" or "ACHR" or "NAVM" or "LAND" or "INFO") Assert.NotNull(chain.ParentAt(v));
                 Assert.Empty(RecordDiff.ChangedFields(mutagen, decoded));
                 if (v == chain.Versions - 1 && mutagen.EditorID is { } editorId) Assert.Equal(editorId, chain.EditorId);
             }

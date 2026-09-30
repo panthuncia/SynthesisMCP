@@ -21,7 +21,9 @@ public static class CliApp
 
         Load order: every command below needs one of
             --data <Data folder> --plugins <plugins.txt>
-            --mo2 <MO2 instance folder> [--profile <name>]        (read-only; MO2 need not run)
+            --mo2 <MO2 instance folder> [--profile <name>] [--mo2-exe <ModOrganizer.exe>] [--no-vfs]
+                runs inside MO2's virtual file system, through MO2 (started if it is not running); by default the
+                profile MO2 runs. --no-vfs reads the profile without MO2. Either way, nothing is written to it.
           and takes [--release SkyrimSE]. Results print as text, all of them unless --budget <characters>
           summarises; --offset <n> starts from a row; --json prints JSON; --out <file> [--format jsonl|csv|text]
           writes a new file instead.
@@ -184,7 +186,7 @@ public static class CliApp
 internal sealed record CommandLine(string Name, IReadOnlyList<string> Arguments, IReadOnlyDictionary<string, string> Options)
 {
     /// <summary>Options that take no value.</summary>
-    private static readonly HashSet<string> Flags = ["json"];
+    private static readonly HashSet<string> Flags = ["json", "no-vfs"];
 
     public static CommandLine Parse(IReadOnlyList<string> args)
     {

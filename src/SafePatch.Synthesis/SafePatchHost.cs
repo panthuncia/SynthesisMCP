@@ -52,8 +52,8 @@ public static class SafePatchHost
         {
             throw new PatchRejectedException(
                 e.Message + " Mod Organizer 2 injects its virtual file system into every process started under it, and the " +
-                "sandboxed worker cannot start with it. The worker needs no VFS (SafePatch opens every file for it): add " +
-                "SafePatch.Worker.exe to MO2's executables blacklist (Settings > Workarounds > Executables Blacklist).",
+                "sandboxed worker cannot start with it. SafePatch asks MO2's usvfs to leave the worker out; if this MO2 did not, " +
+                "add SafePatch.Worker.exe to MO2's executables blacklist (Settings > Workarounds > Executables Blacklist).",
                 e.Log, e);
         }
         catch (PatchRejectedException e)
