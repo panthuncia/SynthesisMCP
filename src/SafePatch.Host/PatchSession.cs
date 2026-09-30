@@ -129,13 +129,13 @@ public sealed class PatchSession(IWorkerLauncher launcher, IPatchCommitter commi
             {
                 var info = new FileInfo(file.Path);
                 if (info.Length > policy.MaxInlineFileBytes) throw new SafePatchException($"{file.Path} is too large to copy to the worker.");
-                shared.Add(new SharedFile(file.Path, Contents: File.ReadAllBytes(file.Path)));
+                shared.Add(new SharedFile(file.WorkerPath, Contents: File.ReadAllBytes(file.Path)));
             }
             else
             {
                 var handle = File.OpenHandle(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
                 openFiles.Add(handle);
-                shared.Add(new SharedFile(file.Path, Handle: worker.ShareReadOnly(handle)));
+                shared.Add(new SharedFile(file.WorkerPath, Handle: worker.ShareReadOnly(handle)));
             }
         }
         return shared;

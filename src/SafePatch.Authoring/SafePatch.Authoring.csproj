@@ -3,6 +3,8 @@
        The CLI and the MCP server are thin front ends over it. Nothing here writes to a load order. -->
   <ItemGroup>
     <PackageReference Include="Mutagen.Bethesda.Skyrim" />
+    <!-- The read-only file system Mutagen reads a layered (MO2) Data folder through. -->
+    <PackageReference Include="TestableIO.System.IO.Abstractions.TestingHelpers" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SafePatch.Compiler\SafePatch.Compiler.csproj" />

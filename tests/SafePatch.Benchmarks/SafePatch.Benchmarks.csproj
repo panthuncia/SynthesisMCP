@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Load-order read benchmarks: Mutagen against the raw plugin scanner, on the scale fixture or a real Data folder. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SafePatch.TestSupport\SafePatch.TestSupport.csproj" />
+    <ProjectReference Include="..\..\src\SafePatch.Authoring\SafePatch.Authoring.csproj" />
+  </ItemGroup>
+</Project>

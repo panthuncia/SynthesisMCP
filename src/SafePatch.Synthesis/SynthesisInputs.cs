@@ -1,4 +1,5 @@
 using CommandLine;
+using Mutagen.Bethesda;
 using Mutagen.Bethesda.Environments.DI;
 using Mutagen.Bethesda.Inis.DI;
 using Mutagen.Bethesda.Installs.DI;
@@ -16,12 +17,14 @@ namespace SafePatch.Synthesis;
 /// </summary>
 public static class SynthesisInputs
 {
-    /// <summary>Data folder files Mutagen reads while building the load order: plugins, archives.</summary>
-    private static readonly HashSet<string> DataExtensions = new(StringComparer.OrdinalIgnoreCase) { ".esm", ".esp", ".esl", ".bsa", ".ba2" };
+    /// <summary>Data folder files Mutagen reads while building the load order: plugins and archives. Strings files are shared from Strings\.</summary>
+    public static readonly IReadOnlySet<string> DataExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".esm", ".esp", ".esl", ".bsa", ".ba2" };
 
     /// <param name="settingsPath">The program's settings file name (from its manifest), if it has settings.</param>
     /// <param name="gameIni">The game INI listing archives; by default, where Synthesis looks for it.</param>
-    public static RunInputs Plan(IReadOnlyList<string> arguments, string? settingsPath = null, string? gameIni = null)
+    /// <param name="dataFiles">The Data folder's plugins, archives and strings files, when they are not all in the
+    /// folder itself (an MO2 profile outside MO2): each is shared at its path under the Data folder.</param>
+    public static RunInputs Plan(IReadOnlyList<string> arguments, string? settingsPath = null, string? gameIni = null, IReadOnlyList<InputFile>? dataFiles = null)
     {
         var run = Parse(arguments);
         var workerArguments = WorkerArguments(arguments);
@@ -51,7 +54,11 @@ public static class SynthesisInputs
             files.AddRange(SourceFiles(source, run.SplitIfMaxMastersExceeded).Select(f => new InputFile(f)));
 
         // Enumerating through the host means MO2's virtual Data folder is what the worker sees.
-        if (Directory.Exists(run.DataFolderPath))
+        if (dataFiles is not null)
+        {
+            files.AddRange(dataFiles);
+        }
+        else if (Directory.Exists(run.DataFolderPath))
         {
             files.AddRange(Directory.EnumerateFiles(run.DataFolderPath)
                 .Where(f => DataExtensions.Contains(Path.GetExtension(f)))
@@ -66,12 +73,14 @@ public static class SynthesisInputs
         return new RunInputs(workerArguments, files, settingsFile, run.DataFolderPath, gameIni);
     }
 
+    private static string? GameIni(RunSynthesisMutagenPatcher run) => DefaultGameIni(run.GameRelease, run.DataFolderPath);
+
     /// <summary>Where Synthesis's state factory looks for the game INI: under My Documents for Skyrim.</summary>
-    private static string? GameIni(RunSynthesisMutagenPatcher run) =>
+    public static string? DefaultGameIni(GameRelease release, string dataFolder) =>
         new IniPathLookup(
-                new GameDirectoryLookupInjection(run.GameRelease, new Noggog.DirectoryPath(run.DataFolderPath).Directory),
+                new GameDirectoryLookupInjection(release, new Noggog.DirectoryPath(dataFolder).Directory),
                 new ProtonPrefixProvider())
-            .TryGet(run.GameRelease)?.Path;
+            .TryGet(release)?.Path;
 
     /// <summary>The plugin format the host reads the worker's output with: the one this run's Synthesis uses.</summary>
     public static PluginFormat Format(RunSynthesisMutagenPatcher run, IEnumerable<ModKey> loadOrder) =>

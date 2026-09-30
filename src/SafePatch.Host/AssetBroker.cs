@@ -160,3 +160,19 @@ public sealed class DataFolderAssetSource(string dataFolder) : IAssetSource
         catch (DirectoryNotFoundException) { return null; }
     }
 }
+
+/// <summary>
+/// Loose files from several folders layered into one Data folder, as a mod manager does: the first
+/// source (the highest priority) that has a file serves it.
+/// </summary>
+public sealed class LayeredAssetSource(IReadOnlyList<IAssetSource> highestFirst) : IAssetSource
+{
+    public SafeFileHandle? Open(string dataRelativePath)
+    {
+        foreach (var source in highestFirst)
+        {
+            if (source.Open(dataRelativePath) is { } handle) return handle;
+        }
+        return null;
+    }
+}

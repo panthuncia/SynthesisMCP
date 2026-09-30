@@ -158,6 +158,54 @@ public sealed class AssetBrokerTests : IDisposable
         Assert.Equal([@"textures\y.dds"], report.DeniedAssets);
     }
 
+    [Fact]
+    public void Layered_sources_serve_each_file_from_the_highest_one_that_has_it()
+    {
+        string Layer(string name, params string[] files)
+        {
+            var root = Directory.CreateDirectory(Path.Combine(_data.FullName, name, "meshes")).Parent!.FullName;
+            foreach (var file in files) File.WriteAllText(Path.Combine(root, "meshes", file), name);
+            return root;
+        }
+        var source = new LayeredAssetSource([new DataFolderAssetSource(Layer("High", "both.nif")), new DataFolderAssetSource(Layer("Low", "both.nif", "low.nif"))]);
+
+        string Read(string path)
+        {
+            using var stream = new FileStream(source.Open(path)!, FileAccess.Read);
+            return new StreamReader(stream).ReadToEnd();
+        }
+
+        Assert.Equal("High", Read(@"meshes\both.nif"));
+        Assert.Equal("Low", Read(@"meshes\low.nif"));
+        Assert.Null(source.Open(@"meshes\none.nif"));
+    }
+
+    [Fact]
+    public void A_file_is_shared_with_the_worker_at_the_path_it_is_shared_as()
+    {
+        var real = Path.Combine(_data.FullName, "mods", "Some Mod", "Some.esp");
+        Directory.CreateDirectory(Path.GetDirectoryName(real)!);
+        File.WriteAllText(real, "plugin");
+        const string asData = @"C:\Game\Data\Some.esp";
+        IReadOnlyList<SharedFile>? shared = null;
+        var launcher = new InProcessWorkerLauncher((i, o, nonce) =>
+        {
+            var channel = new FrameChannel(i, o);
+            channel.Send(new Hello(ProtocolVersion.Current, nonce));
+            shared = channel.Receive<Start>().Files;
+            channel.Send(new Submit([[]], ""));
+            channel.Receive<Result>();
+            return 0;
+        });
+
+        new PatchSession(launcher, new RecordingCommitter())
+            .Run(TestPrograms.Package([0x4D, 0x5A]), new RunInputs(["run-patcher"], [new InputFile(real, SharedAs: asData)]), TestContext.Current.CancellationToken);
+
+        var file = Assert.Single(shared!);
+        Assert.Equal(asData, file.Path);
+        Assert.NotNull(file.Handle);
+    }
+
     public void Dispose()
     {
         try { _data.Delete(recursive: true); } catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }

@@ -3,7 +3,9 @@
 Sandboxed, agent-authored Skyrim patchers that run inside Synthesis. Design: `Synthesis_MCP_design.md`.
 Plan and status: `docs/implementation-plan.md`. Decisions: `docs/decisions/`. ADR 005, on native Mutagen in the
 sandbox, supersedes the design's hand-written SDK. ADR 006 covers the rest of the API: nested records,
-settings, the asset provider, FormKey persistence and export options. ADR 007 covers versioning. What runs where:
+settings, the asset provider, FormKey persistence and export options. ADR 007 covers versioning, and ADR 008 the
+load-order queries (budgets, conflicts, MO2 profiles, `run_query`), and ADR 009 the load-order index they read
+through. What runs where:
 `docs/compatibility.md`. User docs: `README.md`.
 
 ## How a patch runs
@@ -28,6 +30,7 @@ host reads it with the run's language and string encoding (`PluginFormat`). See 
 ## Commands
 
 ```sh
+powershell -NoProfile -ExecutionPolicy Bypass -File eng/mutagen-fork/Build-MutagenFork.ps1  # once: packs the Mutagen fork
 dotnet build                                                                            # warnings are errors
 dotnet test --filter "Category!=Sandbox&Category!=Build&Category!=Synthesis&Category!=MO2&Category!=Scale"  # fast loop
 dotnet test                                                                             # everything (Windows)
@@ -42,6 +45,9 @@ Test categories:
   loop; set `SAFEPATCH_FUZZ_ITERATIONS` to run longer.
 - `Scale` runs a merge over a synthetic load order of hundreds of plugins in the sandbox and prints timings.
   Run it manually; results are in the implementation plan.
+- `Game` runs programs that override, create and revert records of every type in a real game, in the sandbox. It
+  needs `SAFEPATCH_GAME_DATA` (a Skyrim Data folder) and `SAFEPATCH_GAME_PLUGINS` (a plugins.txt) and skips without
+  them. Run it after changes to the committer, `ModCodec` or `RecordDiff`.
 - `MO2` launches it through Mod Organizer 2. It skips while another MO2 or usvfs-hooked process is running:
   MO2 2.5.2 shares one usvfs instance per session, so the test would join and disturb it. Under MO2 the worker
   must be on MO2's executables blacklist and patchers need `<CETCompat>false</CETCompat>` (ADR 002, "MO2").
@@ -65,7 +71,16 @@ EndToEnd tests build. The tool cache is `%LOCALAPPDATA%\SafePatch\e2e-tools`. Sk
 - `Synthesis` is the single composition root for a patcher run. There is no DI container, except in `Mcp`,
   where the SDK's host needs one.
 - `Authoring` is the service behind the `safepatch` CLI (`Cli`) and MCP server (`Mcp`). The front ends map one
-  to one onto it, add no logic of their own, and never write to a load order.
+  to one onto it, add no logic of their own, and never write to a load order. Load orders come from a
+  `LoadOrderSource` (a Data folder, or an MO2 profile read without MO2) through a read-only `DataView`. Queries
+  (`Query/QueryService`) return a `ResultSet`, which `AuthoringSession` renders within a budget and keeps under a
+  handle. Never return a whole result unbudgeted to an agent.
+- Queries choose records from `Index/LoadOrderIndex`, built once per snapshot from every plugin's Mutagen overlay
+  (record headers and EditorIDs only, in parallel batches), and read the versions they show with
+  `LoadOrderSnapshot.Read`, through the plugin's overlay. Do not enumerate a plugin's records again in a query.
+  Incoming references and asset users narrow their candidates with a raw byte search of the plugins
+  (`PluginScanner`) before confirming through Mutagen. Check on a real Data folder with `tests/SafePatch.Benchmarks`
+  (`bench`, `check-full`, `check-decode`, `check-refs`).
 - Add an interface only when there is a second implementation, and a test fake counts. The seams are
   `IWorkerLauncher`, `IWorkerProcess`, `IPatchCommitter` and `IAssetSource`.
 - A new project needs a rule in `DependencyRulesTests.Allowed`.
@@ -79,6 +94,9 @@ EndToEnd tests build. The tool cache is `%LOCALAPPDATA%\SafePatch\e2e-tools`. Sk
 - Compare records only after reading both sides the same way (`ModCodec`). Mutagen's parse of some fields
   depends on context.
 - Package versions are pinned in `Directory.Packages.props`. Treat any change as a trusted-template change.
+  Mutagen (Kernel, Core, Skyrim) is a build of the fork `panthuncia/Mutagen` at the commit
+  `eng/mutagen-fork/Build-MutagenFork.ps1` pins, from the local feed `NuGet.config` names, until its fixes and
+  performance changes are in a Mutagen release; then return to nuget.org.
 - Settings sources reach trusted code (the patcher, and Synthesis's settings GUI), so `SettingsPolicyChecker`
   allows data only. Keep it strict.
 - Test programs are C# source compiled at test time: `TestPrograms.Compile` skips the policy, and

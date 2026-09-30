@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Linq.Expressions;
 using System.Reflection;
 using Loqui;
 using Loqui.Internal;
@@ -36,40 +37,102 @@ public static class RecordDiff
     /// <summary>Names of the fields that differ between two versions of the same record, excluding child records.</summary>
     public static IReadOnlyList<string> ChangedFields(IMajorRecordGetter before, IMajorRecordGetter after)
     {
-        var classType = Registration(before).ClassType;
-        var method = EqualsMaskMethods.GetOrAdd(classType, FindEqualsMask);
-        var include = Enum.Parse(method.GetParameters()[2].ParameterType, "All");
-        var mask = method.Invoke(null, [before, after, include])!;
-        var children = ChildFields(classType);
-
+        var differ = Differs.GetOrAdd(Registration(before).ClassType, BuildDiffer);
+        var mask = differ.Mask(before, after);
         var changed = new List<string>();
-        foreach (var (name, value) in MaskEntries(mask))
+        foreach (var (name, isEqual) in differ.Fields)
         {
-            if (Bookkeeping.Contains(name) || children.Contains(name)) continue;
-            var equal = value switch
-            {
-                bool b => b,
-                null => true,
-                // MaskItem<bool, TSubMask>: Overall covers the whole sub-object or list.
-                var item => item.GetType().GetField("Overall")?.GetValue(item) is true,
-            };
-            if (!equal) changed.Add(name);
+            if (!isEqual(mask)) changed.Add(name);
         }
         return changed;
     }
 
     /// <summary>
-    /// The per-field entries of an equals mask. Generated masks expose some entries as fields and
-    /// some (sub-object masks) as properties.
+    /// A record type's comparison, compiled once: a call to its generated equals mask, and for each compared field a
+    /// test of whether the mask says it is equal (a <c>bool</c>, or the <c>Overall</c> of a sub-object or list mask).
+    /// Replaces reflection on every comparison, which the host's commit and conflict analysis both do per record.
     /// </summary>
-    private static IEnumerable<(string Name, object? Value)> MaskEntries(object mask)
+    private sealed record Differ(Func<IMajorRecordGetter, IMajorRecordGetter, object> Mask, IReadOnlyList<(string Name, Func<object, bool> IsEqual)> Fields);
+
+    private static readonly ConcurrentDictionary<Type, Differ> Differs = new();
+
+    private static Differ BuildDiffer(Type classType)
     {
+        var method = FindEqualsMask(classType);
+        var getter = method.GetParameters()[0].ParameterType;
+        var include = Enum.Parse(method.GetParameters()[2].ParameterType, "All");
+        var before = Expression.Parameter(typeof(IMajorRecordGetter), "before");
+        var after = Expression.Parameter(typeof(IMajorRecordGetter), "after");
+        var call = Expression.Call(method, Expression.Convert(before, getter), Expression.Convert(after, getter), Expression.Constant(include));
+        var mask = Expression.Lambda<Func<IMajorRecordGetter, IMajorRecordGetter, object>>(Expression.Convert(call, typeof(object)), before, after).Compile();
+
+        var maskType = method.ReturnType;
+        var children = ChildFields(classType);
+        var fields = new List<(string, Func<object, bool>)>();
         const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
-        foreach (var field in mask.GetType().GetFields(flags))
-            yield return (field.Name, field.GetValue(mask));
-        foreach (var property in mask.GetType().GetProperties(flags).Where(p => p.GetIndexParameters().Length == 0))
-            yield return (property.Name, property.GetValue(mask));
+        IEnumerable<MemberInfo> members = maskType.GetFields(flags).Cast<MemberInfo>()
+            .Concat(maskType.GetProperties(flags).Where(p => p.GetIndexParameters().Length == 0));
+        foreach (var member in members)
+        {
+            if (Bookkeeping.Contains(member.Name) || children.Contains(member.Name)) continue;
+            fields.Add((member.Name, CompileIsEqual(maskType, member)));
+        }
+        return new Differ(mask, fields);
     }
+
+    /// <summary>Whether a mask entry says its field is equal: true for an unset entry, as before.</summary>
+    private static Func<object, bool> CompileIsEqual(Type maskType, MemberInfo member)
+    {
+        var parameter = Expression.Parameter(typeof(object), "mask");
+        var value = Expression.MakeMemberAccess(Expression.Convert(parameter, maskType), member);
+        return Expression.Lambda<Func<object, bool>>(IsEqual(value), parameter).Compile();
+    }
+
+    /// <summary>Whether one mask entry says equal. An unset (null) entry does.</summary>
+    private static Expression IsEqual(Expression value)
+    {
+        if (value.Type == typeof(bool)) return value;
+        Expression body;
+        if (value.Type.IsGenericType && value.Type.GetGenericTypeDefinition() == typeof(GenderedItem<>))
+        {
+            // A gendered field's mask: one entry for each gender.
+            body = Expression.AndAlso(IsEqual(Expression.Property(value, "Male")), IsEqual(Expression.Property(value, "Female")));
+        }
+        else if (value.Type.GetField("Overall") is { FieldType: var overallType } overall && overallType == typeof(bool))
+        {
+            // MaskItem<bool, TSubMask>: Overall covers the whole sub-object or list.
+            body = Expression.Field(value, overall);
+        }
+        else
+        {
+            return value.Type.IsValueType && Nullable.GetUnderlyingType(value.Type) is null
+                ? Expression.Constant(false)
+                : Expression.Equal(value, Expression.Constant(null, value.Type));
+        }
+        return value.Type.IsValueType
+            ? body
+            : Expression.Condition(Expression.Equal(value, Expression.Constant(null, value.Type)), Expression.Constant(true), body);
+    }
+
+    /// <summary>
+    /// The field names of a generated Mutagen class (a record or a nested object such as <c>LeveledItemEntry</c>),
+    /// base-class fields first, as its masks name them. These are the names <see cref="ChangedFields"/> reports
+    /// and manifests use. Header bookkeeping is left out.
+    /// </summary>
+    public static IReadOnlyList<string> FieldNames(Type classType) => FieldNameCache.GetOrAdd(classType, type =>
+    {
+        var registration = LoquiRegistration.GetRegister(type);
+        var mask = registration.ClassType.GetNestedType("Mask`1")?.MakeGenericType(typeof(bool))
+                   ?? throw new NotSupportedException($"Mutagen generated no mask for {type.Name}.");
+        const BindingFlags flags = BindingFlags.Public | BindingFlags.Instance;
+        IEnumerable<string> Names(Type t) =>
+            (t.BaseType is { } parent && parent != typeof(object) ? Names(parent) : [])
+            .Concat(t.GetFields(flags | BindingFlags.DeclaredOnly).Select(f => f.Name))
+            .Concat(t.GetProperties(flags | BindingFlags.DeclaredOnly).Where(p => p.GetIndexParameters().Length == 0).Select(p => p.Name));
+        return [.. Names(mask).Where(n => !Bookkeeping.Contains(n) && n != "Specified").Distinct()];
+    });
+
+    private static readonly ConcurrentDictionary<Type, IReadOnlyList<string>> FieldNameCache = new();
 
     /// <summary>
     /// Fields of <paramref name="classType"/> that hold other major records, directly or through
@@ -133,6 +196,32 @@ public static class RecordDiff
             ? type.GetInterfaces().Prepend(type).SelectMany(i => i.GetProperties(BindingFlags.Public | BindingFlags.Instance))
                 .DistinctBy(p => p.Name)
             : type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+    /// <summary>
+    /// Whether two generated objects (records, or parts such as <c>RankPlacement</c>) hold the same values, by their
+    /// equals mask. Their own <c>Equals</c> is not used: in Mutagen 0.54.4 it compares lists of byte arrays, and
+    /// gendered fields, by where they are rather than what they hold, so two reads of the same bytes can differ.
+    /// </summary>
+    public static bool ValuesEqual(ILoquiObject a, ILoquiObject b) =>
+        a.Registration.ClassType == b.Registration.ClassType
+        && ValueComparers.GetOrAdd(a.Registration.ClassType, BuildValueComparer)(a, b);
+
+    private static readonly ConcurrentDictionary<Type, Func<object, object, bool>> ValueComparers = new();
+
+    private static Func<object, object, bool> BuildValueComparer(Type classType)
+    {
+        var method = FindEqualsMask(classType);
+        var getter = method.GetParameters()[0].ParameterType;
+        var include = Enum.Parse(method.GetParameters()[2].ParameterType, "All");
+        var a = Expression.Parameter(typeof(object), "a");
+        var b = Expression.Parameter(typeof(object), "b");
+        var mask = Expression.Call(method, Expression.Convert(a, getter), Expression.Convert(b, getter), Expression.Constant(include));
+        var all = mask.Type.GetMethod("All", [typeof(Func<bool, bool>)])
+                  ?? throw new NotSupportedException($"Mutagen generated no All on {mask.Type.Name}.");
+        Func<bool, bool> isTrue = x => x;
+        var body = Expression.Call(mask, all, Expression.Constant(isTrue));
+        return Expression.Lambda<Func<object, object, bool>>(body, a, b).Compile();
+    }
 
     private static MethodInfo FindEqualsMask(Type classType)
     {

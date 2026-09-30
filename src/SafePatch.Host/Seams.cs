@@ -47,7 +47,12 @@ public sealed record RecordChange(string FormKey, string RecordType, string? Edi
 
 /// <summary>A file the worker may read, at the path the program will ask for.</summary>
 /// <param name="Inline">Copy the contents (small text files) rather than sharing a handle.</param>
-public sealed record InputFile(string Path, bool Inline = false);
+/// <param name="SharedAs">The path the worker sees, when the file lives elsewhere: a plugin in an MO2 mod folder is
+/// shared as if it were in the game's Data folder. By default, <paramref name="Path"/>.</param>
+public sealed record InputFile(string Path, bool Inline = false, string? SharedAs = null)
+{
+    public string WorkerPath => SharedAs ?? Path;
+}
 
 /// <summary>What the worker runs: the Synthesis arguments and the files they refer to.</summary>
 /// <param name="SettingsFile">Which of <paramref name="Files"/> holds the user's settings, if the program has settings and the user saved some.</param>

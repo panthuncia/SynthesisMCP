@@ -180,6 +180,19 @@ public class VerticalSliceTests
     }
 
     [Fact]
+    public void A_link_to_a_form_the_engine_defines_is_not_a_missing_record()
+    {
+        // PlayerRef (000014:Skyrim.esm) is hardcoded by the engine: no plugin has it, yet conditions name it everywhere.
+        using var run = new HostRun();
+        var report = run.Run(Program("""
+            var list = state.LoadOrder.PriorityOrder.LeveledItem().WinningContextOverrides().First().GetOrAddAsOverride(state.PatchMod);
+            list.Entries!.Add(new LeveledItemEntry { Data = new LeveledItemEntryData { Level = 1, Count = 1, Reference = new FormLink<IItemGetter>(FormKey.Factory("000014:Skyrim.esm")) } });
+            """));
+
+        Assert.Single(report.Changes);
+    }
+
+    [Fact]
     public void Overriding_a_record_outside_the_load_order_is_rejected()
     {
         using var run = new HostRun();

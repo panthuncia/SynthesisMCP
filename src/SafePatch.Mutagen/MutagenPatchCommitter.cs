@@ -1,6 +1,7 @@
 using Mutagen.Bethesda;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Cache;
+using Mutagen.Bethesda.Plugins.Implicit;
 using Mutagen.Bethesda.Plugins.Records;
 using SafePatch.Host;
 
@@ -155,16 +156,28 @@ public sealed class MutagenPatchCommitter<TMod, TModGetter>(
         return null;
     }
 
-    /// <summary>Links the record gained (relative to <paramref name="original"/>) that resolve nowhere.</summary>
+    /// <summary>
+    /// Links the record gained (relative to <paramref name="original"/>) that resolve nowhere. Forms the engine defines
+    /// itself (<see cref="IsHardcoded"/>, such as PlayerRef) exist in every game without being in a plugin.
+    /// </summary>
     private IEnumerable<FormKey> NewBrokenLinks(IMajorRecordGetter record, IMajorRecordGetter? original, IReadOnlyDictionary<FormKey, IMajorRecordGetter> outputRecords)
     {
         var existing = original?.EnumerateFormLinks().Select(l => l.FormKey).ToHashSet() ?? [];
         return record.EnumerateFormLinks()
-            .Where(l => !l.IsNull && !existing.Contains(l.FormKey) && !outputRecords.ContainsKey(l.FormKey)
+            .Where(l => !l.IsNull && !existing.Contains(l.FormKey) && !outputRecords.ContainsKey(l.FormKey) && !IsHardcoded(l.FormKey)
                         && !linkCache.TryResolve(l.FormKey, l.Type, out _))
             .Select(l => l.FormKey)
             .Distinct();
     }
+
+    /// <summary>
+    /// Forms with IDs below 0x800 in the game's own master are reserved for the engine, which defines some of them
+    /// without any plugin record (Skyrim's PlayerRef is 000014:Skyrim.esm).
+    /// </summary>
+    private bool IsHardcoded(FormKey formKey) => formKey.ID < HardcodedIdLimit && formKey.ModKey == _gameMaster;
+
+    private const uint HardcodedIdLimit = 0x800;
+    private readonly ModKey _gameMaster = Implicits.Get(release).BaseMasters.First();
 
     private static string Describe(IMajorRecordGetter record) =>
         record.EditorID is { } id ? $"{record.FormKey} ({id})" : record.FormKey.ToString();

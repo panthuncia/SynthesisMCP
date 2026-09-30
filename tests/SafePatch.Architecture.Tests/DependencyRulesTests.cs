@@ -25,7 +25,7 @@ public class DependencyRulesTests
         ["SafePatch.Generator"] = (["SafePatch.Compiler", "SafePatch.Host"], []),
         // The authoring service composes the rest for the CLI and MCP front ends; it reads load orders, never writes them.
         ["SafePatch.Authoring"] = (["SafePatch.Compiler", "SafePatch.Generator", "SafePatch.Host", "SafePatch.Mutagen", "SafePatch.Synthesis", "SafePatch.Sandbox.Windows"],
-            ["Mutagen.Bethesda.Skyrim"]),
+            ["Mutagen.Bethesda.Skyrim", "TestableIO.System.IO.Abstractions.TestingHelpers"]),
         ["SafePatch.Cli"] = (["SafePatch.Authoring"], []),
         ["SafePatch.Mcp"] = (["SafePatch.Authoring"], ["ModelContextProtocol", "Microsoft.Extensions.Hosting"]),
     };

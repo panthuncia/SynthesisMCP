@@ -27,12 +27,15 @@ public static class LocalFeed
     public static string Version => Packed.Value.Version;
 
     /// <summary>
-    /// Writes a NuGet.config for a generated solution: SafePatch packages only from the local feed,
-    /// everything else from nuget.org, into a packages folder kept apart from the user's.
+    /// Writes a NuGet.config for a generated solution: SafePatch packages only from the local feed, Mutagen's from the
+    /// fork's feed (as the repository's NuGet.config has it, until the fork's changes are released), everything else
+    /// from nuget.org, into a packages folder kept apart from the user's.
     /// </summary>
     public static void Configure(string solutionDirectory)
     {
-        var packages = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SafePatch", "e2e-packages");
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var packages = Path.Combine(localAppData, "SafePatch", "e2e-packages");
+        var mutagenFork = Path.Combine(localAppData, "SafePatch", "mutagen-fork");
         // Test versions are single-use; drop earlier ones so the folder does not grow.
         var old = Path.Combine(packages, "safepatch.synthesis");
         if (Directory.Exists(old)) Directory.Delete(old, recursive: true);
@@ -46,11 +49,17 @@ public static class LocalFeed
               <packageSources>
                 <clear />
                 <add key="local" value="{Packed.Value.Folder}" />
+                <add key="mutagen-fork" value="{mutagenFork}" />
                 <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
               </packageSources>
               <packageSourceMapping>
                 <packageSource key="local">
                   <package pattern="SafePatch.*" />
+                </packageSource>
+                <packageSource key="mutagen-fork">
+                  <package pattern="Mutagen.Bethesda.Kernel" />
+                  <package pattern="Mutagen.Bethesda.Core" />
+                  <package pattern="Mutagen.Bethesda.Skyrim" />
                 </packageSource>
                 <packageSource key="nuget.org">
                   <package pattern="*" />

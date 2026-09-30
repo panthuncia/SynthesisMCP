@@ -32,6 +32,11 @@ covers it; the test named is the one to rerun after a change.
 | Mod Organizer 2 2.5.2 | Tested (`Mo2LaunchTests`, run manually) | Add `SafePatch.Worker.exe` to MO2's executables blacklist (Settings > Workarounds). Let Synthesis build the patcher once outside MO2, because building under MO2 crashes the C# compiler (a known Synthesis issue). |
 | Vortex | Not tested | Vortex deploys into the real Data folder, which SafePatch reads as it does without a manager. |
 
+**Authoring against an MO2 profile** (`--mo2`) is tested with fake instances (`LoadOrderSourceTests`): SafePatch
+reads `ModOrganizer.ini`, the profile's `modlist.txt` and `plugins.txt`, and layers the game's Data folder, the
+enabled mods and overwrite itself, without MO2 or its virtual file system. It only reads, and an open load order
+never stops MO2 from deleting a mod or renaming a plugin away (ADR 008).
+
 Under MO2, the worker does not need the virtual file system: the host, which runs inside MO2, opens every file
 and hands the worker read-only handles. If the worker is not blacklisted, it crashes on start and the run
 fails with a message naming the blacklist setting (ADR 002, "MO2").
@@ -48,13 +53,23 @@ fails with a message naming the blacklist setting (ADR 002, "MO2").
 
 Generated patchers list the targeted releases in `SynthesisMeta.json`.
 
+## Record types
+
+Every Skyrim record type is read: the index and reader agree with Mutagen on every record of the base game and its
+Creation Club content (`LoadOrderIndexTests`, and the benchmarks' `check-*` commands). Every type the base game has
+(124) can be overridden, and every type but cells, worldspaces and dialog topics has been created, through the
+sandbox, the host's validation and the commit (`EveryFormTests`, category `Game`). Containers can be created too, but
+a program copying one must not copy its child records with it: they are records of their own.
+
+Links to forms the engine defines itself (IDs below 0x800 in `Skyrim.esm`, such as PlayerRef) count as present.
+
 ## Limits
 
 The publisher defaults (`PatchPolicy.PublisherDefault`). A manifest can lower them, never raise them.
 
 | Limit | Default |
 | --- | --- |
-| Worker memory | 2 GiB (`SandboxOptions.MemoryLimitBytes`) |
+| Worker memory | 4 GiB (`SandboxOptions.MemoryLimitBytes`); set `SAFEPATCH_WORKER_MEMORY_MB`, or `--worker-memory` for the CLI and MCP server |
 | Run time | 10 minutes |
 | Records added, changed or removed | 100,000 (manifests default to 10,000) |
 | Worker frame | 512 MiB |

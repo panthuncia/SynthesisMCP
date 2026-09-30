@@ -46,6 +46,10 @@ Executables Blacklist). The worker needs no virtual file system, because SafePat
 it can't start with MO2's hooks. Let Synthesis build the patcher once outside MO2. Building under MO2 crashes
 the C# compiler, a known Synthesis issue.
 
+**Memory.** The sandboxed worker may use up to 4 GiB. For a patcher that needs more (a large load order read in
+full), set the environment variable `SAFEPATCH_WORKER_MEMORY_MB` for Synthesis, e.g. to `8192`. The authoring
+CLI and MCP server also take `--worker-memory <MiB>`.
+
 See [docs/compatibility.md](docs/compatibility.md) for tested versions and limits.
 
 ### What the manifest allows
@@ -88,29 +92,55 @@ patcher runs the Synthesis library it was built with.
 The `safepatch` command line and the `safepatch-mcp` server give an author (a person or an agent) the same
 operations:
 
+**Inspecting the load order**, as xEdit would:
+
 | Operation | CLI | MCP tool |
 | --- | --- | --- |
-| List the load order | `load-order` | `get_load_order` |
-| Print a record's winning version | `record <FormKey or EditorID>` | `get_record` |
-| Show every version and what each plugin changed | `chain <id>` | `get_override_chain` |
-| Find records of a type | `query <Type> [--editor-id <text>]` | `query_records` |
-| Find records linking to a record | `refs <id>` | `find_references` |
+| The load order, or one plugin's header and records by type | `load-order [<plugin>]` | `load_order` |
+| Find records by type, plugin, EditorID, name, field conditions or links | `find --types ... [--where "..."]` | `find_records` |
+| One version of a record (the winner by default) | `record <FormKey or EditorID>` | `get_record` |
+| Every version side by side, with the edits the winner loses | `compare <id>` | `compare_record` |
+| Conflicts: lost edits by field and plugin, ITMs, resolutions | `conflicts --types ...` | `find_conflicts` |
+| Links from and to a record | `refs <id>` | `references` |
+| Where a Data file comes from, and which records use it | `asset <path>` | `find_asset` |
+| Record types and their fields | `type [<Type>]` | `describe_type` |
+| Anything else, as a read-only program run in the sandbox | `query <query.cs>` | `run_query` |
+
+**Writing patchers:**
+
+| Operation | CLI | MCP tool |
+| --- | --- | --- |
 | Check a program against the policy | `validate <program.cs>` | `validate_patch` |
 | Run it in the sandbox and see each field before and after | `test <program.cs> --writable ...` | `test_patch` |
 | Write a Synthesis patcher repository | `package <program.cs> --name ... --out ...` | `package_synthesis_patcher` |
 
-Load-order commands need `--data <Skyrim Data folder> --plugins <plugins.txt>`. Test runs happen in the sandbox
-against that load order and write nothing to it. Run `safepatch` with no arguments for the full usage.
+Load-order commands need `--data <Skyrim Data folder> --plugins <plugins.txt>`, or `--mo2 <MO2 instance folder>
+[--profile <name>]` for a Mod Organizer 2 profile. MO2 need not be running: SafePatch reads the profile's mod
+list and layers the mod folders itself, reads only, and never stops MO2 from changing mods while it has them
+open. Test runs and queries happen in the sandbox against that load order and write nothing to it. Run
+`safepatch` with no arguments for the full usage.
+
+The first query indexes every record in the load order, which takes under a second for the base game and its
+Creation Club content; later queries take milliseconds. Results are sized for an agent's context. Each MCP answer fits a character budget (8,000 by default): a large
+one starts with its total and group counts, shows what fits, and names the call for the rest
+(`read_results`), or the whole result can be written to a file (`export_results`). After changing mods, call
+`reload`. The CLI prints results in full unless given `--budget`.
 
 To use the MCP server with an MCP client such as Claude Code:
 
 ```sh
+claude mcp add safepatch -- safepatch-mcp --mo2 "C:\Games\Mod Organizer 2"
 claude mcp add safepatch -- safepatch-mcp --data "C:\Games\Skyrim Special Edition\Data" --plugins "C:\Users\you\AppData\Local\Skyrim Special Edition\plugins.txt"
 ```
 
-With MO2, the load order lives in MO2's virtual Data folder and profile. Authoring against it is not tested yet.
-
 ## Building
+
+SafePatch builds against a fork of Mutagen (`panthuncia/Mutagen`) until its fixes and performance changes are in a
+Mutagen release. Pack it into the local feed once before the first build, and again when its pin changes:
+
+```sh
+powershell -NoProfile -ExecutionPolicy Bypass -File eng/mutagen-fork/Build-MutagenFork.ps1
+```
 
 ```sh
 dotnet build                  # warnings are errors
@@ -121,4 +151,5 @@ dotnet pack src/SafePatch.Synthesis   # the runtime package generated patchers r
 
 The design is in [Synthesis_MCP_design.md](Synthesis_MCP_design.md), the decisions are in
 [docs/decisions](docs/decisions), and the status is in [docs/implementation-plan.md](docs/implementation-plan.md).
-Nothing is published to nuget.org yet. Until a release, generated patchers need the locally packed runtime.
+Nothing is published to nuget.org yet. Until a release, generated patchers need the locally packed runtime. They also
+need the Mutagen fork's feed in their NuGet.config, as this repository's has it.

@@ -16,6 +16,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SafePatch.Architecture.Tests/SafePatch.Architecture.Tests.csproj" />
     <Project Path="tests/SafePatch.Authoring.Tests/SafePatch.Authoring.Tests.csproj" />
+    <Project Path="tests/SafePatch.Benchmarks/SafePatch.Benchmarks.csproj" />
     <Project Path="tests/SafePatch.Compiler.Tests/SafePatch.Compiler.Tests.csproj" />
     <Project Path="tests/SafePatch.EndToEnd.Tests/SafePatch.EndToEnd.Tests.csproj" />
     <Project Path="tests/SafePatch.Generator.Tests/SafePatch.Generator.Tests.csproj" />

@@ -17,7 +17,37 @@ public sealed record SandboxOptions
     public required string WorkerPath { get; init; }
 
     public string ContainerName { get; init; } = "SafePatch.Worker";
-    public ulong MemoryLimitBytes { get; init; } = 2UL * 1024 * 1024 * 1024;
+
+    /// <summary>
+    /// The most memory the worker may commit; past it the Job Object ends it. <see cref="DefaultMemoryLimitBytes"/>
+    /// unless <see cref="MemoryLimitVariable"/> sets another, which reaches patchers Synthesis runs too.
+    /// </summary>
+    public ulong MemoryLimitBytes { get; init; } = ConfiguredMemoryLimitBytes(Environment.GetEnvironmentVariable);
+
+    /// <summary>4 GiB: a full parse of every record a patch touches in a large load order fits, with room to spare.</summary>
+    public const ulong DefaultMemoryLimitBytes = 4UL * 1024 * 1024 * 1024;
+
+    /// <summary>An environment variable giving the worker memory limit in MiB.</summary>
+    public const string MemoryLimitVariable = "SAFEPATCH_WORKER_MEMORY_MB";
+
+    private const ulong MinimumMemoryLimitMiB = 256;
+    private const ulong MaximumMemoryLimitMiB = 1024 * 1024;
+
+    /// <summary>The limit <see cref="MemoryLimitVariable"/> sets, or the default when it is unset.</summary>
+    public static ulong ConfiguredMemoryLimitBytes(Func<string, string?> environment) =>
+        environment(MemoryLimitVariable) is { Length: > 0 } value ? ParseMemoryLimit(value, MemoryLimitVariable) : DefaultMemoryLimitBytes;
+
+    /// <summary>A memory limit given in MiB, in bytes. A value that is not a whole number of MiB in range is refused.</summary>
+    /// <param name="source">Where the value came from, for the error.</param>
+    public static ulong ParseMemoryLimit(string mebibytes, string source)
+    {
+        if (!ulong.TryParse(mebibytes.Trim(), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            || value is < MinimumMemoryLimitMiB or > MaximumMemoryLimitMiB)
+        {
+            throw new SafePatchException($"{source} is \"{mebibytes}\": give the worker memory limit as a whole number of MiB from {MinimumMemoryLimitMiB} to {MaximumMemoryLimitMiB}, e.g. 4096 for 4 GiB.");
+        }
+        return value * 1024 * 1024;
+    }
 
     /// <summary>
     /// Less Privileged AppContainer: also opts out of the ALL APPLICATION PACKAGES grants. Needs the
@@ -97,12 +127,33 @@ public sealed class AppContainerLauncher(SandboxOptions options) : IWorkerLaunch
         }
     }
 
+    /// <summary>
+    /// Creates the container profile once, or finds the existing one. Creating the same profile from two places at
+    /// once (parallel test runs, a CLI beside an MCP server) fails with E_UNEXPECTED, so creation is serialised
+    /// across processes in the user's session.
+    /// </summary>
     private static IntPtr GetOrCreateContainerSid(string name)
     {
-        var hr = CreateAppContainerProfile(name, name, "Sandbox for SafePatch worker programs", IntPtr.Zero, 0, out var sid);
-        if (hr == HRESULT_ALREADY_EXISTS) hr = DeriveAppContainerSidFromAppContainerName(name, out sid);
-        if (hr != 0) throw new SafePatchException($"Could not create AppContainer profile (0x{hr:X8}).");
-        return sid;
+        using var creating = new Mutex(initiallyOwned: false, $@"Local\SafePatch.AppContainer.{name}");
+        try
+        {
+            creating.WaitOne();
+        }
+        catch (AbandonedMutexException)
+        {
+            // A process died while creating the profile: this one now owns the mutex and finishes the job.
+        }
+        try
+        {
+            var hr = CreateAppContainerProfile(name, name, "Sandbox for SafePatch worker programs", IntPtr.Zero, 0, out var sid);
+            if (hr == HRESULT_ALREADY_EXISTS) hr = DeriveAppContainerSidFromAppContainerName(name, out sid);
+            if (hr != 0) throw new SafePatchException($"Could not create AppContainer profile (0x{hr:X8}).");
+            return sid;
+        }
+        finally
+        {
+            creating.ReleaseMutex();
+        }
     }
 
     /// <summary>Lets the container load the worker and its libraries. Idempotent.</summary>

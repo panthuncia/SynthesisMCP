@@ -158,12 +158,6 @@
         }
       },
       "safepatch.protocol": {
-        "type": "Project",
-        "dependencies": {
-          "SafePatch.Sdk": "[1.0.0, )"
-        }
-      },
-      "safepatch.sdk": {
         "type": "Project"
       }
     }

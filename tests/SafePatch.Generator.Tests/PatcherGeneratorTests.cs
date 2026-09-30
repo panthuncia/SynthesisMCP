@@ -132,6 +132,8 @@ public sealed class PatcherGeneratorTests : IDisposable
     public void Generated_repository_builds_with_the_worker_and_payload(bool withSettings)
     {
         PatcherGenerator.Generate(withSettings ? Spec(SamplePrograms.NamedList) with { SettingsSource = SamplePrograms.NamingSettings } : Spec(), _output);
+        // The runtime project references Mutagen from the fork's local feed, which the repository's NuGet.config names.
+        File.Copy(Path.Combine(RepoRoot(), "NuGet.config"), Path.Combine(_output, "NuGet.config"));
 
         var build = Process.Start(new ProcessStartInfo("dotnet", ["build", Path.Combine(_output, "CacoLeveledLists.sln"), "-c", "Release", "-nologo", "-v", "q"])
         {

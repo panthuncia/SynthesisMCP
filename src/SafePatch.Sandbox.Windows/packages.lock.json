@@ -5,17 +5,10 @@
       "safepatch.host": {
         "type": "Project",
         "dependencies": {
-          "SafePatch.Protocol": "[1.0.0, )",
-          "SafePatch.Sdk": "[1.0.0, )"
+          "SafePatch.Protocol": "[1.0.0, )"
         }
       },
       "safepatch.protocol": {
-        "type": "Project",
-        "dependencies": {
-          "SafePatch.Sdk": "[1.0.0, )"
-        }
-      },
-      "safepatch.sdk": {
         "type": "Project"
       }
     }

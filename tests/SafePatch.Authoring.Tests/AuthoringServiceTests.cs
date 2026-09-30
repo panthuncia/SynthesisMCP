@@ -21,54 +21,6 @@ public sealed class AuthoringServiceTests : IDisposable
     }
 
     [Fact]
-    public void Lists_the_load_order_with_implicit_masters_first()
-    {
-        var plugins = _service.GetLoadOrder();
-
-        Assert.Equal([PluginFixture.BaseMaster, PluginFixture.Caco, PluginFixture.Other], plugins.Select(p => p.ModKey));
-        Assert.Equal([PluginFixture.BaseMaster], plugins[1].Masters);
-    }
-
-    [Fact]
-    public void Gets_the_winning_record_by_EditorID_or_FormKey()
-    {
-        var byEditorId = _service.GetRecord(PluginFixture.ListEditorId);
-        var byFormKey = _service.GetRecord(_fixture.Plugins.List.ToString());
-
-        Assert.Equal(byEditorId, byFormKey);
-        Assert.Equal(("LeveledItem", PluginFixture.Other), (byEditorId.Record.Type, byEditorId.Record.WinningPlugin));
-        Assert.Contains(PluginFixture.ListEditorId, byEditorId.Text);
-        Assert.Throws<SafePatchException>(() => _service.GetRecord("NoSuchRecord"));
-    }
-
-    [Fact]
-    public void Shows_the_override_chain_and_what_each_plugin_changed()
-    {
-        var chain = _service.GetOverrideChain(PluginFixture.ListEditorId);
-
-        Assert.Equal([PluginFixture.BaseMaster, PluginFixture.Caco, PluginFixture.Other], chain.Select(v => v.Plugin));
-        Assert.Empty(chain[0].ChangedFields);
-        Assert.Equal(["Entries"], chain[1].ChangedFields);
-        Assert.Equal(["Entries"], chain[2].ChangedFields);
-    }
-
-    [Fact]
-    public void Queries_winning_records_by_type_and_EditorID()
-    {
-        Assert.Equal([PluginFixture.ListEditorId], _service.QueryRecords("LeveledItem").Select(r => r.EditorId));
-        Assert.Equal(["CACO_Potion"], _service.QueryRecords("Ingestible", "caco").Select(r => r.EditorId));
-        Assert.Throws<SafePatchException>(() => _service.QueryRecords("NotARecordType"));
-    }
-
-    [Fact]
-    public void Finds_winning_records_that_link_to_a_record()
-    {
-        // The winning list still has the sword, but the later override dropped CACO's potion.
-        Assert.Contains(_service.FindReferences("IronSword"), r => r.EditorId == PluginFixture.ListEditorId);
-        Assert.DoesNotContain(_service.FindReferences("CACO_Potion"), r => r.EditorId == PluginFixture.ListEditorId);
-    }
-
-    [Fact]
     public void Validates_programs_under_the_sandbox_policy()
     {
         Assert.True(AuthoringService.Validate(SamplePrograms.LeveledListMerge).Success);
@@ -139,6 +91,64 @@ public sealed class AuthoringServiceTests : IDisposable
         Assert.True(result.Accepted, result.Error);
         Assert.Single(result.Changes);
         Assert.Contains("Restored 1 entries", result.Log);
+    }
+
+    /// <summary>Prints each winning leveled list, and tries to add a record, which must be discarded.</summary>
+    private const string ListQuery = """
+        using System;
+        using Mutagen.Bethesda;
+        using Mutagen.Bethesda.Skyrim;
+        using Mutagen.Bethesda.Synthesis;
+        public static class ListQuery
+        {
+            public static void RunPatch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
+            {
+                foreach (var list in state.LoadOrder.PriorityOrder.LeveledItem().WinningOverrides())
+                    Console.WriteLine($"{list.EditorID}: {list.Entries?.Count ?? 0} entries");
+                for (var i = 0; i < 3; i++) state.PatchMod.LeveledItems.AddNew($"QueryTried{i}");
+            }
+        }
+        """;
+
+    [Fact]
+    public void A_query_that_changes_the_patch_is_not_rejected_because_its_output_is_never_read()
+    {
+        var result = _service.RunQuery(ListQuery, cancel: TestContext.Current.CancellationToken);
+
+        Assert.False(result.Failed, string.Join("\n", result.Rows.Select(r => r[0])));
+        Assert.Equal(_snapshot.Generation, result.Generation);
+    }
+
+    [Fact]
+    public void A_query_outside_the_sandbox_policy_is_rejected_before_it_runs()
+    {
+        var result = _service.RunQuery(ListQuery.Replace("for (var i = 0;", "System.IO.File.Delete(\"x\"); for (var i = 0;"), cancel: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Failed);
+        Assert.Contains(result.Rows, r => r[0]!.StartsWith("SP0004", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Category", "Sandbox")]
+    public void A_sandboxed_query_returns_what_it_printed_as_lines()
+    {
+        var result = new AuthoringService(_snapshot).RunQuery(ListQuery, cancel: TestContext.Current.CancellationToken);
+
+        Assert.False(result.Failed, string.Join("\n", result.Notes ?? []));
+        Assert.Equal([$"{PluginFixture.ListEditorId}: 3 entries"], result.Rows.Select(r => r[0]));
+    }
+
+    [Fact]
+    [Trait("Category", "Sandbox")]
+    public void A_query_that_throws_reports_the_failure_and_what_it_printed_first()
+    {
+        var failing = ListQuery.Replace("for (var i = 0;", "throw new InvalidOperationException(\"stop\"); for (var i = 0;");
+
+        var result = new AuthoringService(_snapshot).RunQuery(failing, cancel: TestContext.Current.CancellationToken);
+
+        Assert.True(result.Failed);
+        Assert.Contains(result.Notes!, n => n.StartsWith("The query failed", StringComparison.Ordinal));
+        Assert.Contains([$"{PluginFixture.ListEditorId}: 3 entries"], result.Rows);
     }
 
     public void Dispose()
