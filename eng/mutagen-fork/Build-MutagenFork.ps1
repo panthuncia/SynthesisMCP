@@ -32,6 +32,22 @@ if ((Test-Path $stamp) -and (Get-Content $stamp -Raw).Trim() -eq "$Commit $Versi
     return
 }
 
+# NuGet's cache is shared with Oculory, which packs the same pin. A version is packed from one commit only (the
+# version is bumped with the commit), so packages already in the cache are reused rather than packed again: packing
+# isn't byte-for-byte reproducible, and two packs of one version would disagree with each other's lock files.
+$globalPackages = if ($env:NUGET_PACKAGES) { $env:NUGET_PACKAGES } else { Join-Path $env:USERPROFILE '.nuget\packages' }
+$cachedPackages = foreach ($project in $Projects) {
+    $id = $project.ToLowerInvariant()
+    Join-Path $globalPackages "$id\$Version\$id.$Version.nupkg"
+}
+if (-not ($cachedPackages | Where-Object { -not (Test-Path $_) })) {
+    Get-ChildItem $Feed -Filter '*.nupkg' -ErrorAction SilentlyContinue | Remove-Item -Force
+    foreach ($package in $cachedPackages) { Copy-Item $package $Feed }
+    Set-Content $stamp "$Commit $Version"
+    Write-Step "reused $Version from NuGet's cache"
+    return
+}
+
 $source = Join-Path $Feed 'src'
 if (-not (Test-Path (Join-Path $source '.git'))) {
     Write-Step "cloning $Repo"
@@ -46,8 +62,8 @@ foreach ($project in $Projects) {
     Write-Step "packing $project $Version"
     Invoke-Checked dotnet @('pack', (Join-Path $source "$project\$project.csproj"), '-c', 'Release', '-o', $Feed,
         "-p:Version=$Version", '-p:DisableGitVersionTask=true', '-p:GeneratePackageOnBuild=false', '-nologo', '-v', 'q')
-    # A package of the same version packed earlier would otherwise be served from NuGet's cache.
-    $cached = Join-Path $env:USERPROFILE ".nuget\packages\$($project.ToLowerInvariant())\$Version"
+    # A partial set in the cache (an interrupted restore) would otherwise be served instead of the new packages.
+    $cached = Join-Path $globalPackages "$($project.ToLowerInvariant())\$Version"
     if (Test-Path $cached) { Remove-Item $cached -Recurse -Force }
 }
 Set-Content $stamp "$Commit $Version"
