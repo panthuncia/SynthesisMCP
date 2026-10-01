@@ -1,7 +1,9 @@
 # 010: A load-order view for Oculory
 
-**Status:** accepted, October 2026, jointly with Oculory's ADR 012. Built when Oculory wires SafePatch's authoring tools
-into its assistant (Oculory's M5); nothing here changes SafePatch's code yet.
+**Status:** superseded, October 2026, by Oculory's ADR 013: Oculory's assistant answers with tools of its own over its
+index, with SafePatch's tool names, rather than SafePatch's queries through a view. Sizing the view showed it meant
+rewriting the queries around a new index abstraction and repackaging `SafePatch.Authoring` (packed inside
+`SafePatch.Synthesis` today). Nothing here was built; SafePatch's code is unchanged. Kept for the reasoning.
 
 ## Context
 
