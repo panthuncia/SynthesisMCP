@@ -46,7 +46,7 @@ public sealed class FormKeyPersistence
     /// with another patcher's entries.
     /// </summary>
     /// <returns>The entries to write.</returns>
-    internal IReadOnlyList<(string EditorId, uint Id)> Validate(byte[] updated, IReadOnlyDictionary<FormKey, string?> acceptedNew, ModKey patchKey)
+    public IReadOnlyList<(string EditorId, uint Id)> Validate(byte[] updated, IReadOnlyDictionary<FormKey, string?> acceptedNew, ModKey patchKey)
     {
         var entries = Parse(new MemoryStream(updated), "the worker's persistence file");
         var own = File.Exists(OwnFile) ? Parse(File.OpenRead(OwnFile), OwnFile).ToDictionary(e => e.EditorId, e => e.Id) : [];
@@ -75,7 +75,7 @@ public sealed class FormKeyPersistence
     }
 
     /// <summary>Writes this patcher's file as Mutagen does: to a temporary file, then replacing the old one.</summary>
-    internal void Write(IReadOnlyList<(string EditorId, uint Id)> entries)
+    public void Write(IReadOnlyList<(string EditorId, uint Id)> entries)
     {
         var temp = Path.Combine(_folder, _patcherName + ".tmp");
         using (var writer = new StreamWriter(temp))
