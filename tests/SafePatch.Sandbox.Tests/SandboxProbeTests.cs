@@ -219,6 +219,36 @@ public sealed class SandboxProbeTests : IDisposable
         Assert.Empty(_run.PatchMod.LeveledItems);
     }
 
+    [Fact]
+    public void New_records_keep_their_FormKeys_across_runs_in_the_sandbox()
+    {
+        // The persistence folder is the host's, which the AppContainer can't see; the worker sees its brokered copy.
+        var persistence = Path.Combine(_userDir.FullName, "Persistence");
+        static string Create(params string[] editorIds) => $$"""
+            using Mutagen.Bethesda;
+            using Mutagen.Bethesda.Skyrim;
+            using Mutagen.Bethesda.Synthesis;
+            public static class P
+            {
+                public static void RunPatch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
+                {
+                    {{string.Concat(editorIds.Select(e => $"state.PatchMod.LeveledItems.AddNew(\"{e}\");"))}}
+                }
+            }
+            """;
+        global::Mutagen.Bethesda.Plugins.FormKey first;
+        using (var run = new HostRun(persistenceFolder: persistence))
+        {
+            run.Run(Create("LItemPersisted"), creatable: ["LeveledItem"], launcher: Launcher());
+            first = Assert.Single(run.PatchMod.LeveledItems).FormKey;
+        }
+
+        using var again = new HostRun(persistenceFolder: persistence);
+        again.Run(Create("LItemNewcomer", "LItemPersisted"), creatable: ["LeveledItem"], launcher: Launcher());
+
+        Assert.Equal(first, again.PatchMod.LeveledItems.Single(l => l.EditorID == "LItemPersisted").FormKey);
+    }
+
     public void Dispose()
     {
         _listener.Stop();

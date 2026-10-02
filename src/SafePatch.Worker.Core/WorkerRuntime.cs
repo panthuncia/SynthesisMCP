@@ -1,5 +1,6 @@
 using CommandLine;
 using Mutagen.Bethesda.Plugins;
+using Mutagen.Bethesda.Plugins.Allocators;
 using Mutagen.Bethesda.Plugins.Analysis;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
@@ -71,7 +72,17 @@ public static class WorkerRuntime
         var program = PatchProgram.Load(start.Program);
         var pipeline = SynthesisPipeline.Instance.AddPatch<ISkyrimMod, ISkyrimModGetter>(async state =>
         {
+            // Synthesis (0.36.6) looks for the persistence folder on the real disk before giving the patch its allocator,
+            // and in the sandbox it isn't there, only its brokered copy: the allocator is set up here instead, on the
+            // brokered file system, and committed once the program has run, as Synthesis's would be when it disposes.
+            TextFileSharedFormKeyAllocator? allocator = null;
+            if (run.PersistencePath is { } persistence && run.PatcherName is { } patcher
+                && !TextFileSharedFormKeyAllocator.IsPathOfAllocatorType(persistence) && TextFileSharedFormKeyAllocator.IsPathOfAllocatorType(persistence, fileSystem))
+            {
+                allocator = state.PatchMod.SetAllocator(new TextFileSharedFormKeyAllocator(state.PatchMod, persistence, patcher, fileSystem: fileSystem));
+            }
             await program.Run(start.GameIniPath is { } ini ? IniArchives.WithIniArchives(state, run, fileSystem, ini) : state);
+            allocator?.Commit();
             // A localized source plugin makes the patch localized; keep the intermediate's strings embedded.
             if (state.PatchMod.CanUseLocalization) state.PatchMod.UsingLocalization = false;
         });
