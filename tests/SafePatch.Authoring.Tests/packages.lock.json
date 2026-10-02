@@ -227,15 +227,15 @@
       },
       "Mutagen.Bethesda.Core": {
         "type": "Transitive",
-        "resolved": "0.54.5-safepatch.9",
-        "contentHash": "RuS6MjJV5CihUs46p5QRMeHmj+4J+Mrh66Om9RNiE1cV7KP+0EtGZkbYZY8v9X1Kb5VpOI7JRTT6QnmYZpboRw==",
+        "resolved": "0.54.5-safepatch.10",
+        "contentHash": "R/5avtoHxa5KWaKw8vFmWc0FQZ8VKeXYPWS5QLoZZtvEqDrTO9LG8Z/N0Eer1NeYPMTuLH2QAkErCe2w8afOBA==",
         "dependencies": {
           "GameFinder.StoreHandlers.GOG": "4.9.0",
           "GameFinder.StoreHandlers.Steam": "4.9.0",
           "GameFinder.StoreHandlers.Xbox": "4.9.0",
           "K4os.Compression.LZ4.Streams": "1.3.8",
           "Loqui": "3.7.0",
-          "Mutagen.Bethesda.Kernel": "0.54.5-safepatch.9",
+          "Mutagen.Bethesda.Kernel": "0.54.5-safepatch.10",
           "Noggog.CSharpExt": "4.3.0",
           "SharpZipLib": "1.4.2",
           "StrongInject": "1.4.4",
@@ -254,8 +254,8 @@
       },
       "Mutagen.Bethesda.Kernel": {
         "type": "Transitive",
-        "resolved": "0.54.5-safepatch.9",
-        "contentHash": "AkyyF8pg2tToCp//X3gJkgncU4Qwkoej5QSl+P5a7dIb+CnXgBD3mFMlcC/RKLgmQpVmI69ZvAn1/D3JS1QnyQ==",
+        "resolved": "0.54.5-safepatch.10",
+        "contentHash": "1kDw8KaH3NV9A8fZ412KoI1Tj1f+3XTok87awcEEKRs68PixVANSfcpXWrlqoZ6wpWR2KHEpwrgfOQ82cu7XXg==",
         "dependencies": {
           "Noggog.CSharpExt": "4.3.0"
         }
@@ -434,7 +434,7 @@
       "safepatch.authoring": {
         "type": "Project",
         "dependencies": {
-          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
           "SafePatch.Compiler": "[1.0.0, )",
           "SafePatch.Generator": "[1.0.0, )",
           "SafePatch.Host": "[1.0.0, )",
@@ -455,7 +455,7 @@
         "dependencies": {
           "Basic.Reference.Assemblies.Net100": "[1.8.12, )",
           "Microsoft.CodeAnalysis.CSharp": "[5.6.0, )",
-          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
           "Mutagen.Bethesda.Synthesis": "[0.36.6, 0.36.6]"
         }
       },
@@ -475,7 +475,7 @@
       "safepatch.mutagen": {
         "type": "Project",
         "dependencies": {
-          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
           "SafePatch.Host": "[1.0.0, )"
         }
       },
@@ -491,7 +491,7 @@
       "safepatch.synthesis": {
         "type": "Project",
         "dependencies": {
-          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
           "Mutagen.Bethesda.Synthesis": "[0.36.6, 0.36.6]",
           "SafePatch.Host": "[1.0.0, )",
           "SafePatch.Mutagen": "[1.0.0, )",
@@ -511,7 +511,7 @@
       "safepatch.worker.core": {
         "type": "Project",
         "dependencies": {
-          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
+          "Mutagen.Bethesda.Skyrim": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
           "Mutagen.Bethesda.Synthesis": "[0.36.6, 0.36.6]",
           "SafePatch.Protocol": "[1.0.0, )",
           "TestableIO.System.IO.Abstractions.TestingHelpers": "[22.1.1, )"
@@ -538,12 +538,12 @@
       },
       "Mutagen.Bethesda.Skyrim": {
         "type": "CentralTransitive",
-        "requested": "[0.54.5-safepatch.9, 0.54.5-safepatch.9]",
-        "resolved": "0.54.5-safepatch.9",
-        "contentHash": "U5A2sxvQHTH/rTHSlT5s/mk6g7N4A0uwkPj9l0uQhnjnY7EAMlEefoZPNSPTOBcD1wzyPtRkLNCVdf4XA1vesw==",
+        "requested": "[0.54.5-safepatch.10, 0.54.5-safepatch.10]",
+        "resolved": "0.54.5-safepatch.10",
+        "contentHash": "osow7TfVOfDpX3TGsz+1zvUjEdDxmOtKPI4sfppGbU3+df0d2icp/EYTpygdvCNgddATkLwxHVXgnpuHJIMoWg==",
         "dependencies": {
           "Loqui": "3.7.0",
-          "Mutagen.Bethesda.Core": "0.54.5-safepatch.9",
+          "Mutagen.Bethesda.Core": "0.54.5-safepatch.10",
           "Noggog.CSharpExt": "4.3.0"
         }
       },
