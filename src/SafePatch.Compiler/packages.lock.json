@@ -23,12 +23,12 @@
       },
       "Mutagen.Bethesda.Skyrim": {
         "type": "Direct",
-        "requested": "[0.54.5-safepatch.15, 0.54.5-safepatch.15]",
-        "resolved": "0.54.5-safepatch.15",
-        "contentHash": "7WaSK4KpsGn7Deasjqhjp1wJs2nd47ueJSyP6OIAImchvNtcYLvSrGcC0roMQxXboK7n539PKhV8ouaNqH4KOg==",
+        "requested": "[0.54.5-safepatch.16, 0.54.5-safepatch.16]",
+        "resolved": "0.54.5-safepatch.16",
+        "contentHash": "62JVT0ciHwaXoWzZAR0Rlqr5r2pbBomoE7oFJ45wxtTyYTL3rjdLs5FRenSMx4GRYhLaqFw5C+7o8xWwHRv6CA==",
         "dependencies": {
           "Loqui": "3.7.0",
-          "Mutagen.Bethesda.Core": "0.54.5-safepatch.15",
+          "Mutagen.Bethesda.Core": "0.54.5-safepatch.16",
           "Noggog.CSharpExt": "4.3.0"
         }
       },
@@ -183,15 +183,15 @@
       },
       "Mutagen.Bethesda.Core": {
         "type": "Transitive",
-        "resolved": "0.54.5-safepatch.15",
-        "contentHash": "FJolLLMo4QRwbnwqG3oQD9u85S+Erl9UJYvjxtwt+FNela7YQlsBnFSUsLujVQ/R22YXyWQFflkgoHYk9F/WQQ==",
+        "resolved": "0.54.5-safepatch.16",
+        "contentHash": "jUGchJLnFhWRw7uA/jB6dCJ1H0XkYHDELDvlIhFczhnl4J+rr7OAw6xjjIteN5F3/r1m2UCVbzdPOvxTTL/AWQ==",
         "dependencies": {
           "GameFinder.StoreHandlers.GOG": "4.9.0",
           "GameFinder.StoreHandlers.Steam": "4.9.0",
           "GameFinder.StoreHandlers.Xbox": "4.9.0",
           "K4os.Compression.LZ4.Streams": "1.3.8",
           "Loqui": "3.7.0",
-          "Mutagen.Bethesda.Kernel": "0.54.5-safepatch.15",
+          "Mutagen.Bethesda.Kernel": "0.54.5-safepatch.16",
           "Noggog.CSharpExt": "4.3.0",
           "SharpZipLib": "1.4.2",
           "StrongInject": "1.4.4",
@@ -210,8 +210,8 @@
       },
       "Mutagen.Bethesda.Kernel": {
         "type": "Transitive",
-        "resolved": "0.54.5-safepatch.15",
-        "contentHash": "zx+AmVJV5qqlKljRL6Pl8ssWqX2v4bA/jp8S/ol2l31q2y/vgZFnFc8KBuPm13Zi+vKRuVeSQsAyoz3qZ2eadg==",
+        "resolved": "0.54.5-safepatch.16",
+        "contentHash": "NTp98Ed4jy81XMUE98V1KZ/5gS3fUbuALIAQMT2jpoLYbkrwsDV6OLqdA8Kaaldrk2BglFFr7m1txHnyFEXr3g==",
         "dependencies": {
           "Noggog.CSharpExt": "4.3.0"
         }
