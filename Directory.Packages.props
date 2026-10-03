@@ -6,7 +6,7 @@
     <!-- A build of the Mutagen fork (panthuncia/Mutagen, safepatch-perf-experiment) from the local feed NuGet.config
          names, until its fixes and performance changes are in a release. It needs eng/mutagen-fork/Build-MutagenFork.ps1
          run once. The index reads plugins through its overlay batches and EditorID peek. -->
-    <PackageVersion Include="Mutagen.Bethesda.Skyrim" Version="[0.54.5-safepatch.16]" />
+    <PackageVersion Include="Mutagen.Bethesda.Skyrim" Version="[0.54.5-safepatch.17]" />
     <PackageVersion Include="Mutagen.Bethesda.Synthesis" Version="[0.36.6]" />
     <PackageVersion Include="Basic.Reference.Assemblies.Net100" Version="1.8.12" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.6.0" />
