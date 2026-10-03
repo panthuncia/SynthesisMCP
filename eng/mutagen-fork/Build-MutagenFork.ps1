@@ -16,8 +16,8 @@ $ErrorActionPreference = 'Stop'
 
 # ---- Pins. Changing any of these is a reviewed change; bump Version with the commit. ----
 $Repo = 'https://github.com/panthuncia/Mutagen.git'
-$Commit = '0896db339be3fd8fb86787a8c4099fdc5f531ee4'
-$Version = '0.54.5-safepatch.20'
+$Commit = 'a71c08ebb1daf48eff6628f27b863d1d1bd85341'
+$Version = '0.54.5-safepatch.21'
 $Projects = 'Mutagen.Bethesda.Kernel', 'Mutagen.Bethesda.Core', 'Mutagen.Bethesda.Skyrim'
 
 function Write-Step([string]$message) { Write-Host "[mutagen-fork] $message" }
