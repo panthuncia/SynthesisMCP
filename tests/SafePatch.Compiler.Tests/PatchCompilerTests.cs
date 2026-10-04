@@ -56,6 +56,14 @@ public class PatchCompilerTests
         var seen = new HashSet<FormKey>();
         Visit(FormKey.Null, seen);
         """, "static void Visit(FormKey key, HashSet<FormKey> seen) { if (!seen.Add(key)) return; }")]
+    // Colours, which Mutagen's records hold as System.Drawing's.
+    [InlineData("""
+        foreach (var npc in state.LoadOrder.PriorityOrder.Npc().WinningOverrides())
+        {
+            var lit = npc.TextureLighting ?? System.Drawing.Color.FromArgb(255, 128, 64);
+            if (lit.R > 200) state.PatchMod.Npcs.GetOrAddAsOverride(npc).TextureLighting = System.Drawing.Color.FromKnownColor(System.Drawing.KnownColor.White);
+        }
+        """)]
     // Reading a stream the asset provider hands out.
     [InlineData("""
         if (state.AssetProvider.TryGetStream(new Mutagen.Bethesda.Assets.DataRelativePath("meshes/x.nif"), out var stream))
@@ -112,6 +120,8 @@ public class PatchCompilerTests
     [InlineData("SP0005", "var r = new System.IO.StreamReader(\"C:/secret.txt\");")]
     [InlineData("SP0004", "var f = new System.IO.FileStream(\"C:/secret.txt\", System.IO.FileMode.Open);")]
     [InlineData("SP0004", "var w = new System.IO.StreamWriter(new System.IO.MemoryStream());")]
+    [InlineData("SP0004", "var c = System.Drawing.SystemColors.Window;")]
+    [InlineData("SP0004", "var r = new System.Drawing.Rectangle(0, 0, 1, 1);")]
     [InlineData("SP0001", "var t = typeof(object);")]
     [InlineData("SP0001", "Span<int> s = stackalloc int[4];")]
     public void Rejects_forbidden_apis(string expectedCode, string body)

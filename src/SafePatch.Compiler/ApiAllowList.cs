@@ -62,6 +62,9 @@ public static class ApiAllowList
         "System.IO.Stream", "System.IO.MemoryStream", "System.IO.SeekOrigin",
         "System.IO.TextReader", "System.IO.StreamReader", "System.IO.BinaryReader", "System.IO.EndOfStreamException",
 
+        // Mutagen's colours (an NPC's TextureLighting, a light's Color): values only. Not SystemColors, which reads the OS's.
+        "System.Drawing.Color", "System.Drawing.KnownColor",
+
         // Compiler-synthesized helpers (interpolated strings, collection expressions).
         "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler",
         "System.Runtime.CompilerServices.CollectionBuilderAttribute",

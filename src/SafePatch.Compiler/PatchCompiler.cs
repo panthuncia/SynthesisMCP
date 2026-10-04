@@ -161,7 +161,8 @@ public static class PatchCompiler
     private static List<PolicyDiagnostic> InspectMetadata(byte[] assembly)
     {
         var allowed = MutagenClosure.Value.Select(Path.GetFileNameWithoutExtension)
-            .Concat(["System.Runtime", "System.Collections", "System.Linq", "System.Memory", "System.Console", "netstandard"])
+            // System.Drawing.Primitives holds Mutagen's colours; the type allow-list admits only Color and KnownColor of it.
+            .Concat(["System.Runtime", "System.Collections", "System.Linq", "System.Memory", "System.Console", "System.Drawing.Primitives", "netstandard"])
             .Concat(CompilerHelperAssemblies.Keys)
             .ToHashSet(StringComparer.Ordinal);
 
