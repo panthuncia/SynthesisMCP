@@ -16,8 +16,8 @@ $ErrorActionPreference = 'Stop'
 
 # ---- Pins. Changing any of these is a reviewed change; bump Version with the commit. ----
 $Repo = 'https://github.com/panthuncia/Mutagen.git'
-$Commit = 'f79dffc0cabfb9c894a92199f778151240fce729'
-$Version = '0.54.5-safepatch.23'
+$Commit = '1ab7e667f9b56f8e4f96f87034050e40a1e32fc3'
+$Version = '0.54.5-safepatch.24'
 $Projects = 'Mutagen.Bethesda.Kernel', 'Mutagen.Bethesda.Core', 'Mutagen.Bethesda.Skyrim'
 
 function Write-Step([string]$message) { Write-Host "[mutagen-fork] $message" }
@@ -53,7 +53,7 @@ if (-not (Test-Path (Join-Path $source '.git'))) {
     Write-Step "cloning $Repo"
     Invoke-Checked git @('clone', '--quiet', '--no-checkout', $Repo, $source)
 }
-Invoke-Checked git @('-C', $source, 'fetch', '--quiet', 'origin', $Commit)
+Invoke-Checked git @('-C', $source, 'fetch', '--quiet', (Join-Path $PSScriptRoot 'read-observations.bundle'), $Commit)
 Invoke-Checked git @('-C', $source, 'checkout', '--quiet', '--force', $Commit)
 if ((git -C $source rev-parse HEAD).Trim() -ne $Commit) { throw "Checked out the wrong commit." }
 

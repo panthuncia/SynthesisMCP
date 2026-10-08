@@ -10,7 +10,7 @@ namespace SafePatch.Host;
 /// <param name="DeniedAssets">Assets the program asked for that the manifest does not allow (the first few).</param>
 public sealed record SessionReport(
     string PackageName, string ProgramSha256, IReadOnlyList<RecordChange> Changes, string Log,
-    string? SettingsSha256 = null, IReadOnlyList<string>? DeniedAssets = null)
+    string? SettingsSha256 = null, IReadOnlyList<string>? DeniedAssets = null, ReadTrace? Observations = null)
 {
     public string ToJson() =>
         JsonSerializer.Serialize(this, new JsonSerializerOptions(FrameChannel.JsonOptions) { WriteIndented = true });
@@ -33,6 +33,16 @@ public sealed class PatchSession(IWorkerLauncher launcher, IPatchCommitter commi
 {
     /// <summary>Each part holds up to 254 masters, so this covers load orders far beyond the game's limits.</summary>
     public const int MaxOutputParts = 64;
+
+    private static ReadTrace? ValidateTrace(ReadTrace? trace)
+    {
+        if (trace is null) return null;
+        if (trace.Version != 1 || trace.Accesses is null || trace.Accesses.Count > 100_000
+            || trace.Accesses.Any(a => a is null || a.Plugin is null || a.Plugin.Length > 260 || a.Key is null || a.Key.Length > 512
+                || a.Kind is not ("record" or "resolve" or "scope" or "plugin" or "order" or "metadata" or "unsupported")))
+            throw new PatchRejectedException("Invalid read observation manifest.");
+        return trace;
+    }
 
     public SessionReport Run(VerifiedPackage package, RunInputs inputs, CancellationToken cancel = default)
     {
@@ -66,7 +76,7 @@ public sealed class PatchSession(IWorkerLauncher launcher, IPatchCommitter commi
             }
             if (inputs.GameIniPath is { } ini && files.All(f => f.Path != ini || f.Contents is null))
                 throw new SafePatchException("The game INI must be copied to the worker.");
-            channel.Send(new Start(package.Program, inputs.Arguments, files, package.Manifest.Settings?.Path, inputs.GameIniPath));
+            channel.Send(new Start(package.Program, inputs.Arguments, files, package.Manifest.Settings?.Path, inputs.GameIniPath, inputs.ObserveReads));
 
             var message = channel.Receive();
             while (message is AssetRequest request)
@@ -117,7 +127,7 @@ public sealed class PatchSession(IWorkerLauncher launcher, IPatchCommitter commi
             throw new PatchRejectedException(e.Message, log, e);
         }
         TrySend(channel, new Result(true, []));
-        return new SessionReport(package.Manifest.Name, package.Manifest.ProgramSha256, changes, log, settingsSha256, broker?.Denied ?? []);
+        return new SessionReport(package.Manifest.Name, package.Manifest.ProgramSha256, changes, log, settingsSha256, broker?.Denied ?? [], ValidateTrace(submit.Observations));
     }
 
     private static List<SharedFile> Share(IReadOnlyList<InputFile> files, IWorkerProcess worker, List<SafeFileHandle> openFiles, PatchPolicy policy)

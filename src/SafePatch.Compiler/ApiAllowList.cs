@@ -81,6 +81,7 @@ public static class ApiAllowList
     public static bool IsAllowedType(INamedTypeSymbol type)
     {
         var definition = type.OriginalDefinition;
+        if (MetadataName(definition) == "Mutagen.Bethesda.Plugins.ReadObservation") return false;
         if (definition.ContainingType is { } outer) return IsAllowedType(outer);
         var ns = definition.ContainingNamespace?.ToDisplayString() ?? "";
         return Namespaces.Contains(ns)
