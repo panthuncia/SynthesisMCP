@@ -39,7 +39,7 @@ public sealed class PatchSession(IWorkerLauncher launcher, IPatchCommitter commi
         if (trace is null) return null;
         if (trace.Version != 1 || trace.Accesses is null || trace.Accesses.Count > 100_000
             || trace.Accesses.Any(a => a is null || a.Plugin is null || a.Plugin.Length > 260 || a.Key is null || a.Key.Length > 512
-                || a.Kind is not ("record" or "resolve" or "scope" or "plugin" or "order" or "metadata" or "unsupported")))
+                || a.Kind is not ("record" or "resolve" or "versions" or "scope" or "plugin" or "order" or "metadata" or "unsupported")))
             throw new PatchRejectedException("Invalid read observation manifest.");
         return trace;
     }
