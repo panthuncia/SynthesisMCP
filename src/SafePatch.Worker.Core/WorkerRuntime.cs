@@ -35,7 +35,7 @@ public static class WorkerRuntime
         try
         {
             var output = RunPipeline(start, openHandle, RequestAsset);
-            channel.Send(new Submit(output.Plugins, log?.ToString() ?? "", output.Persistence));
+            channel.Send(new Submit(output.Plugins, log?.ToString() ?? "", output.Persistence, output.Observations));
         }
         catch (Exception e) when (e is not ProtocolException and not IOException)
         {
@@ -49,7 +49,7 @@ public static class WorkerRuntime
     /// What the pipeline wrote: the output plugin (then its split parts, if Synthesis split it) and,
     /// when the run uses persistence, the patcher's FormKey allocation file.
     /// </summary>
-    public sealed record PipelineOutput(IReadOnlyList<byte[]> Plugins, byte[]? Persistence);
+    public sealed record PipelineOutput(IReadOnlyList<byte[]> Plugins, byte[]? Persistence, ReadTrace? Observations = null);
 
     /// <summary>Runs the program through the real Synthesis pipeline and returns what it wrote.</summary>
     /// <param name="requestAsset">Asks the host for a loose Data file; returns its shared handle, or null.</param>
@@ -62,7 +62,10 @@ public static class WorkerRuntime
         fileSystem.AddDirectory(run.DataFolderPath);
         if (requestAsset is not null)
             fileSystem.SetAssetResolver(run.DataFolderPath, path =>
-                !SharedUpFront(path) && requestAsset(path) is { } handle ? openHandle(handle) : null);
+            {
+                ReadObservation.Report("unsupported", ModKey.Null, "assets");
+                return !SharedUpFront(path) && requestAsset(path) is { } handle ? openHandle(handle) : null;
+            });
         foreach (var file in start.Files)
         {
             if (file is { Handle: { } handle }) fileSystem.AddBrokered(file.Path, openHandle(handle));
@@ -70,6 +73,18 @@ public static class WorkerRuntime
         }
 
         var program = PatchProgram.Load(start.Program);
+        var accesses = new HashSet<ReadAccess>();
+        var accessLock = new Lock();
+        var complete = true;
+        void Observe(string kind, ModKey plugin, string key)
+        {
+            lock (accessLock)
+            {
+                if (kind == "unsupported") complete = false;
+                if (accesses.Count < 100_000) accesses.Add(new(kind, plugin.IsNull ? "" : plugin.FileName, key));
+                else complete = false;
+            }
+        }
         var pipeline = SynthesisPipeline.Instance.AddPatch<ISkyrimMod, ISkyrimModGetter>(async state =>
         {
             // Synthesis (0.36.6) looks for the persistence folder on the real disk before giving the patch its allocator,
@@ -81,7 +96,13 @@ public static class WorkerRuntime
             {
                 allocator = state.PatchMod.SetAllocator(new TextFileSharedFormKeyAllocator(state.PatchMod, persistence, patcher, fileSystem: fileSystem));
             }
-            await program.Run(start.GameIniPath is { } ini ? IniArchives.WithIniArchives(state, run, fileSystem, ini) : state);
+            var patchState = start.GameIniPath is { } ini ? IniArchives.WithIniArchives(state, run, fileSystem, ini) : state;
+            using (start.ObserveReads ? ReadObservation.Begin(Observe) : null)
+            {
+                // Metadata has no generated record getter. Conservatively cover the visible load-order metadata.
+                if (start.ObserveReads) Observe("metadata", ModKey.Null, "");
+                await program.Run(patchState);
+            }
             allocator?.Commit();
             // A localized source plugin makes the patch localized; keep the intermediate's strings embedded.
             if (state.PatchMod.CanUseLocalization) state.PatchMod.UsingLocalization = false;
@@ -102,7 +123,8 @@ public static class WorkerRuntime
         // With --SplitIfMaxMastersExceeded, a patch needing too many masters is written as the plugin plus _2, _3...
         var output = new ModPath(ModKey.FromFileName(Path.GetFileName(run.OutputPath)), run.OutputPath);
         var parts = MultiModFileAnalysis.GetSplitModFiles(output, fileSystem) is { Count: > 0 } split ? split.Select(p => p.Path).ToList() : [run.OutputPath];
-        return new PipelineOutput([.. parts.Select(fileSystem.File.ReadAllBytes)], persistence);
+        return new PipelineOutput([.. parts.Select(fileSystem.File.ReadAllBytes)], persistence, start.ObserveReads
+            ? new ReadTrace(1, complete, accesses.OrderBy(a => a.Kind).ThenBy(a => a.Plugin).ThenBy(a => a.Key).ToArray()) : null);
     }
 
     /// <summary>

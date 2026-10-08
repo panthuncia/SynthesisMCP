@@ -59,4 +59,4 @@ public sealed record InputFile(string Path, bool Inline = false, string? SharedA
 /// <param name="DataFolder">The Data folder loose assets are served from, if any.</param>
 /// <param name="GameIniPath">Which of <paramref name="Files"/> is the game INI listing archives, if it was found.</param>
 public sealed record RunInputs(
-    IReadOnlyList<string> Arguments, IReadOnlyList<InputFile> Files, string? SettingsFile = null, string? DataFolder = null, string? GameIniPath = null);
+    IReadOnlyList<string> Arguments, IReadOnlyList<InputFile> Files, string? SettingsFile = null, string? DataFolder = null, string? GameIniPath = null, bool ObserveReads = false);
